@@ -1,0 +1,4734 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LAMANNA — 首页</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #f0eee9;  /* 全局统一浅米奶油底色，所有屏共用，避免切换色差 */
+    --ink: #161616;
+    --accent: #e23b2e;
+  }
+
+  html, body {
+    min-height: 100%;
+    overflow-x: hidden;      /* 允许竖向滚动滑到第二屏 */
+    background: var(--bg);
+    font-family: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--ink);
+    cursor: crosshair;
+  }
+
+  /* 全站蝴蝶光标（鼠标指针）：40px 透明 PNG，热点在蝴蝶身体中心；触屏设备不启用 */
+  @media (pointer: fine){
+    *, *::before, *::after{
+      cursor: url("images/cursor-butterfly.png") 20 20, auto !important;
+    }
+  }
+
+  /* ---------- 导航栏 ---------- */
+  nav {
+    position: absolute;       /* 不再固定：随页面向上滑走，回到第一屏才出现 */
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 28px 4vw;
+    mix-blend-mode: multiply;
+    pointer-events: none;
+  }
+  nav a, nav ul { pointer-events: auto; }
+
+  /* 离开第一屏后：导航浮动在顶部，上滑浮现、下滑隐藏（第一屏内保持原样） */
+  nav.nav-floating{
+    position: fixed;
+    z-index: 300;
+    background: rgba(240,238,233,.86);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    mix-blend-mode: normal;
+    border-bottom: 1px solid rgba(74,66,60,.08);
+    transform: translateY(-108%);
+    opacity: 0;
+    transition: transform .38s cubic-bezier(.2,.8,.2,1), opacity .38s ease;
+  }
+  nav.nav-floating.nav-show{
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  .logo {
+    font-weight: 900;
+    font-size: clamp(18px, 1.6vw, 26px);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--ink);
+  }
+
+  .nav-links {
+    display: flex;
+    gap: clamp(20px, 4vw, 64px);
+    list-style: none;
+  }
+
+  .nav-links a {
+    position: relative;
+    text-decoration: none;
+    color: var(--ink);
+    font-size: clamp(14px, 1.2vw, 19px);
+    font-weight: 500;
+    letter-spacing: .1em;
+    padding: 4px 2px;
+  }
+
+  .nav-links a::after {
+    content: "";
+    position: absolute;
+    left: 0; bottom: -2px;
+    width: 100%; height: 2px;
+    background: var(--ink);
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform .45s cubic-bezier(.77,0,.18,1);
+  }
+
+  .nav-links a:hover::after,
+  .nav-links a.active::after {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+
+  .nav-right {
+    font-size: clamp(12px, 1vw, 15px);
+    letter-spacing: .15em;
+    opacity: .75;
+    text-decoration: none;
+    color: inherit;
+    transition: opacity .2s ease;
+  }
+  .nav-right:hover{ opacity:1; }
+
+  /* ---------- 第一屏：欢迎页（真实占位一屏高，随页面整体滚动） ---------- */
+  .hero {
+    position: relative;
+    height: 100vh;
+    overflow: hidden;         /* 拼贴图裁剪在本屏内 */
+  }
+
+  /* ---------- 超大标题（屏内底部；W 对齐 L，e 对齐"系"） ---------- */
+  .giant-title {
+    position: absolute;
+    left: 4vw;
+    right: 4vw;
+    /* 距底部留白 = 顶部导航留白(28px)的一半，保证字母完整不被裁切 */
+    bottom: 14px;
+    z-index: 60;
+    text-align: left;
+    font-weight: 900;
+    /* WELCOME HOME 按字面宽度实测：10.14vw 时恰好从 4vw 排到 96vw */
+    font-size: clamp(70px, 10.14vw, 300px);
+    line-height: .85;
+    letter-spacing: -.02em;
+    text-transform: uppercase;
+    color: var(--ink);
+    pointer-events: none;
+    user-select: none;
+    mix-blend-mode: multiply;
+    white-space: nowrap;
+  }
+
+  /* ---------- 鼠标种出来的抠图 ---------- */
+  .collage {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    pointer-events: none;
+  }
+
+  .piece {
+    position: absolute;
+    /* 抠图立体感：柔和多层投影，像剪下来的纸片飘在页面上 */
+    filter: drop-shadow(0 18px 22px rgba(0,0,0,.26))
+            drop-shadow(0 4px 6px rgba(0,0,0,.16));
+    will-change: transform;
+    opacity: 0;
+    transform: scale(.3) rotate(var(--r, 0deg));
+    transition: opacity .45s ease, transform .8s cubic-bezier(.2,1.4,.35,1);
+    pointer-events: auto;
+    cursor: pointer;
+  }
+
+  .piece.born {
+    opacity: 1;
+    transform: scale(1) rotate(var(--r, 0deg));
+  }
+
+  .piece.dying {
+    opacity: 0;
+    transform: scale(.5) rotate(var(--r, 0deg));
+    transition: opacity .6s ease, transform .6s ease;
+  }
+
+  .piece img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;      /* 透明抠图完整展示，不被裁剪 */
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  @media (max-width: 768px) {
+    .nav-links { gap: 16px; }
+    .giant-title { left: 0; right: 0; text-align: center; font-size: 17vw; white-space: normal; line-height: .9; }
+    .manifesto { padding: 6rem 0; }  /* 手机端标题全宽，宣言同步全宽 */
+  }
+
+  /* ---------- 第二屏：宣言（紧随第一屏，连成一体滚动） ---------- */
+  .manifesto{
+    position: relative;
+    z-index: 70;              /* 高于大标题(60)，低于导航(100) */
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background-color: #f0eee9;
+    padding: 6rem 4vw;        /* 左右 4vw，与大标题 W/e 两端对齐 */
+    text-align: center;
+    font-family: "SimSun", "Songti SC", serif;
+    /* 最长行 16 字 × 5.7vw ≈ 91vw，接近大标题宽度 */
+    font-size: clamp(1.2rem, 5.7vw, 6rem);
+    line-height: 1.25;        /* 行距收紧 */
+    color: #222222;
+  }
+  .manifesto p{
+    margin:0;
+    white-space: nowrap;      /* 断行全由 <br> 控制，不因滚动条误差折行 */
+  }
+
+  /* ---------- 第三屏：打字机作品（紧随第二屏，连成一体滚动） ---------- */
+  .typewriter{
+    position: relative;
+    z-index: 70;
+    min-height: 100vh;
+    background-color: #f0eee9; /* 与第二屏同色，视觉上连成一片 */
+    padding: 0.67rem 3vw 14px; /* 顶部缩1/3，左右缩1/4，底部14px不变 */
+    display: flex;
+    flex-direction: column;     /* 跑马灯在上，打字机网格在下 */
+    justify-content: space-between;
+    align-items: center;
+  }
+  /* 底部渐隐遮罩：打字机阴影在底部自然淡化，与第四屏衔接不突兀 */
+  .typewriter::after{
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 14vh;
+    background: linear-gradient(to bottom, rgba(240,238,233,0) 0%, rgba(240,238,233,.15) 60%, #f0eee9 100%);
+    pointer-events: none;
+    z-index: 20;
+  }
+
+  /* ---------- 顶部跑马灯：图片从左到右无限滚动 ---------- */
+  .marquee{
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    padding: 1rem 0;
+    /* 左右 + 底部边缘渐变遮罩：图片/阴影滚到边缘时逐渐透明，不突兀 */
+    -webkit-mask-image:
+      linear-gradient(to right, transparent 0, #000 6%, #000 94%, transparent 100%),
+      linear-gradient(to top,   transparent 0, #000 35%, #000 100%);
+    -webkit-mask-composite: source-in;
+            mask-image:
+      linear-gradient(to right, transparent 0, #000 6%, #000 94%, transparent 100%),
+      linear-gradient(to top,   transparent 0, #000 35%, #000 100%);
+            mask-composite: intersect;
+  }
+  .marquee-track{
+    display: flex;
+    gap: 2.5rem;
+    width: max-content;
+    animation: marquee-scroll 25s linear infinite;
+  }
+  .marquee-track img{
+    height: 40px;             /* 再小一半 */
+    width: auto;
+    flex-shrink: 0;
+    object-fit: contain;
+    user-select: none;
+    -webkit-user-drag: none;
+    filter: drop-shadow(0 10px 14px rgba(0,0,0,.22));
+  }
+  @keyframes marquee-scroll{
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }  /* 复制了一份，-50% 正好无缝 */
+  }
+  .typewriter-grid{
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);  /* 四张放一条 */
+    gap: 1.5rem;
+    max-width: 1400px;
+    width: 100%;
+  }
+  .typewriter-card{
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1178 / 1697;     /* 打字机原图比例 */
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    font-family: "Courier New", "Courier", monospace;
+    filter: drop-shadow(0 18px 22px rgba(0,0,0,.26))
+            drop-shadow(0 4px 6px rgba(0,0,0,.16));
+    transition: transform .35s cubic-bezier(.2,.8,.2,1), filter .35s ease;
+    cursor: pointer;
+  }
+  .typewriter-card:hover{
+    transform: translateY(-5px) scale(1.03);  /* 上浮5px + 微放大 */
+    filter: drop-shadow(0 28px 34px rgba(0,0,0,.33))
+            drop-shadow(0 8px 10px rgba(0,0,0,.22)); /* 阴影加深 */
+  }
+  /* 标题：大字，落在纸条上部 */
+  .tw-title{
+    position: absolute;
+    top: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 78%;
+    text-align: center;
+    font-size: clamp(9px, 1.05vw, 18px);
+    font-weight: 700;
+    color: #4A423C;          /* 灰茶色 */
+    letter-spacing: .04em;
+    text-shadow: .3px .3px 0 rgba(0,0,0,.12);
+    white-space: nowrap;
+  }
+  /* 英文副标题：标题下方，字号介于标题与正文之间 */
+  .tw-subtitle{
+    position: absolute;
+    top: 17%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 78%;
+    text-align: center;
+    font-size: clamp(6px, .7vw, 12px);
+    font-weight: 700;
+    color: #4A423C;
+    letter-spacing: .15em;
+    text-shadow: .3px .3px 0 rgba(0,0,0,.1);
+    white-space: nowrap;
+  }
+  /* 正文：小字，落在纸条中下部 */
+  .tw-body{
+    position: absolute;
+    top: 27%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 74%;
+    text-align: center;
+    font-size: clamp(7px, .82vw, 14px);
+    font-weight: 700;
+    color: #4A423C;
+    line-height: 1.7;
+    letter-spacing: .02em;
+    text-shadow: .3px .3px 0 rgba(0,0,0,.1);
+  }
+  @media (max-width: 768px){
+    .typewriter-grid{ gap: 0.6rem; }
+  }
+
+  /* ---------- 第三屏→第四屏：四根抖动的螺旋电话线 ---------- */
+  .cords-svg{
+    position: absolute;
+    z-index: 6;
+    pointer-events: none;
+    overflow: visible;
+  }
+  .cords-svg path{
+    fill: none;
+    stroke: #54483F;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  /* 外层：以打字机底端为支点缓慢摇摆；内层：高频微颤 */
+  .cord-sway{
+    transform-box: view-box;
+    animation: cord-sway 1.7s ease-in-out infinite alternate;
+  }
+  .cord-jitter{
+    transform-box: view-box;
+    animation: cord-jitter .22s linear infinite alternate;
+  }
+  @keyframes cord-sway{
+    from { transform: rotate(-.7deg); }
+    to   { transform: rotate(.7deg); }
+  }
+  @keyframes cord-jitter{
+    from { transform: translate(-1px, .4px); }
+    to   { transform: translate(1px, -.4px); }
+  }
+  /* 标题单字：用于电话线逐字连接定位 */
+  .article-title h2 .tw-char{
+    display: inline-block;
+  }
+
+  /* ---------- 第四屏：图文（新媒体图文合集） ---------- */
+  .article-screen{
+    position: relative;
+    z-index: 70;
+    min-height: 100vh;
+    background-color: #f0eee9;  /* 与第二/三屏及 body 完全一致，切换无色差 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 26vh 4vw 80px;     /* 顶部留 26vh 空白，电话线空间拉高，内容整体下移 */
+  }
+
+  .article-title{
+    text-align: center;
+    margin-bottom: 60px;
+    z-index: 10;
+  }
+  .article-title h2{
+    font-family: "SimSun", "Songti SC", serif;
+    font-size: clamp(28px, 4.2vw, 52px);
+    font-weight: 700;
+    letter-spacing: .12em;
+    color: #4A423C;
+    margin: 0 0 14px;
+  }
+  .article-title .subtitle{
+    font-family: "SimSun", "Songti SC", serif;
+    font-size: clamp(13px, 1.2vw, 17px);
+    letter-spacing: .18em;
+    color: #4A423C;
+    opacity: .65;
+    margin-bottom: 22px;
+  }
+  .article-title .desc{
+    font-size: clamp(13px, 1.1vw, 16px);
+    color: #4A423C;
+    opacity: .78;
+    letter-spacing: .04em;
+  }
+
+  /* 三台手机横排，轻微错落+角度差 */
+  .phones-row{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(14px, 3vw, 60px);
+    z-index: 10;
+    perspective: 1400px;
+  }
+  .phone{
+    position: relative;
+    width: clamp(150px, 17vw, 220px);
+    aspect-ratio: 9 / 19;
+    background: #1a1a1a;
+    border-radius: 38px;
+    padding: 12px;
+    box-shadow: 0 30px 50px -18px rgba(0,0,0,.32),
+                0 12px 22px -10px rgba(0,0,0,.22),
+                inset 0 0 0 2px rgba(255,255,255,.06);
+    transition: transform .4s cubic-bezier(.2,.8,.2,1), box-shadow .4s ease;
+  }
+  .phone:nth-child(1){ transform: rotate(-6deg) translateY(10px); }
+  .phone:nth-child(2){ transform: rotate(1.5deg) translateY(-16px); }
+  .phone:nth-child(3){ transform: rotate(7deg) translateY(8px); }
+  .phone:hover{
+    transform: rotate(0deg) translateY(-10px);
+    box-shadow: 0 40px 60px -18px rgba(0,0,0,.38),
+                0 16px 26px -10px rgba(0,0,0,.26),
+                inset 0 0 0 2px rgba(255,255,255,.08);
+  }
+  /* 屏幕区域（先空着） */
+  .phone .screen{
+    width: 100%;
+    height: 100%;
+    border-radius: 28px;
+    background: #2b2b2b;
+    overflow: hidden;
+    position: relative;
+  }
+  /* 预览屏：背景图 cover 裁剪，偏上取最美部分，适配手机竖屏比例 */
+  .phone .screen.preview-screen{
+    background-size: cover;
+    background-position: center bottom;
+    background-repeat: no-repeat;
+  }
+  /* 听筒小条 */
+  .phone::before{
+    content: "";
+    position: absolute;
+    top: 20px; left: 50%;
+    transform: translateX(-50%);
+    width: 26%; height: 5px;
+    background: #000;
+    border-radius: 4px;
+    z-index: 2;
+  }
+  /* 空屏占位提示：仅无背景图时显示 */
+  .phone .screen:not(.preview-screen)::after{
+    content: "预览";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,.22);
+    font-size: 14px;
+    letter-spacing: .2em;
+  }
+
+  @media (max-width: 768px){
+    .article-screen{ padding: 20vh 4vw 60px; }
+    .article-title{ margin-bottom: 40px; }
+    .phones-row{ gap: 8px; }
+    .phone{ width: 30vw; border-radius: 24px; padding: 8px; }
+    .phone .screen{ border-radius: 18px; }
+    .phone::before{ top: 14px; height: 4px; }
+  }
+
+  /* ---------- 第五屏：新媒体图文作品展示（轮播卡片） ---------- */
+  .showcase-screen{
+    position: relative;
+    z-index: 70;
+    min-height: 100vh;
+    background-color: #f0eee9;  /* 与其他屏底色一致，切换无色差 */
+    display: flex;
+    flex-direction: column;
+    padding: 60px 0 36px;
+  }
+
+  /* 顶部文字区：左上主标题 + 右上小字 */
+  .showcase-header{
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;      /* 顶对齐，右上文字用 margin 下移拉开距离 */
+    padding: 0 3vw 0 4vw;         /* 左侧与导航栏 Lamanna 的 L 对齐（4vw） */
+    margin-bottom: 0;             /* 与卡片间距由右上文字的 margin-bottom 控制 */
+  }
+  .showcase-header .main-title{
+    font-family: "SimSun", "Songti SC", serif; /* 与第四屏"新媒体图文合集"字体一致 */
+    font-size: clamp(26px, 4vw, 66px);        /* 大一号 */
+    font-weight: 900;
+    letter-spacing: .12em;
+    color: #161616;
+    line-height: 1.05;
+    margin: 0;
+    opacity: 0;
+    transform: translateX(-70px);
+    transition: opacity .9s cubic-bezier(.2,.8,.2,1), transform .9s cubic-bezier(.2,.8,.2,1);
+  }
+  .showcase-header .sub-desc{
+    font-family: "SimSun", "Songti SC", serif; /* 与第四屏"新媒体图文合集"字体一致 */
+    font-size: clamp(12px, 1.6vw, 27px);      /* ≈ 主标题的 45% */
+    font-weight: 700;                          /* 加粗描述文字 */
+    color: #161616;
+    letter-spacing: .18em;
+    margin-top: calc(3.6vw + 1cm);             /* 与主标题错开再加宽1cm */
+    margin-bottom: 2cm;                        /* 与下方卡片间隔2cm */
+    opacity: 0;
+    transform: translateX(70px);
+    transition: opacity .9s cubic-bezier(.2,.8,.2,1) .12s, transform .9s cubic-bezier(.2,.8,.2,1) .12s;
+  }
+  .showcase-screen.visible .main-title{
+    opacity: 1;
+    transform: translateX(0);
+  }
+  .showcase-screen.visible .sub-desc{
+    opacity: .78;
+    transform: translateX(0);
+  }
+
+  /* 轮播区：多卡片层叠，中间突出 */
+  .showcase-carousel{
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .showcase-stage{
+    position: relative;
+    width: 100%;
+    height: calc(29vw * 12 / 11);              /* 卡片整体放大，高度稍增 */
+  }
+  .showcase-card{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 29vw;                               /* 所有卡片同宽，大小差异全用缩放表达，切换才平滑 */
+    aspect-ratio: 11 / 12;                     /* 比例 宽:高 = 11:12 */
+    border-radius: 28px;                       /* 大圆角，柔和现代艺术风格 */
+    background: #E8A862;                       /* 陶土橙，深度与标签绿/蓝一致 */
+    box-shadow: 0 24px 48px -18px rgba(140,80,30,.32);
+    transform: translate(-50%, -50%) scale(.58);
+    transition: transform .6s cubic-bezier(.34, 1.2, .44, 1) .05s,
+                box-shadow .4s ease, opacity .45s ease;   /* transform 延迟0.05s：轻微停顿 */
+    cursor: pointer;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: .5cm .5cm .75cm;                  /* 标题距卡片顶 0.5cm，左右 0.5cm，图片底部 0.75cm */
+  }
+  .showcase-card:hover{
+    box-shadow: 0 36px 60px -18px rgba(120,60,25,.42);
+  }
+  /* 顶部标题块：左上角白色主标题 + 白色副标题，距卡片顶 0.5cm；高度固定保证图片等大 */
+  .card-head{
+    position: relative;
+    z-index: 3;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .card-head h3{
+    margin: 0;
+    height: 2.2vw;                                /* 主标题固定高度 */
+    font-size: 1.7vw;
+    font-weight: 800;
+    letter-spacing: .14em;
+    line-height: 1.25;
+  }
+  .card-head p{
+    margin: .4vw 0 0;
+    height: 3.2vw;                               /* 副标题固定两行高度，短文案下方留白，保证图片等大 */
+    font-size: .95vw;
+    font-weight: 500;
+    letter-spacing: .05em;
+    line-height: 1.65;
+    color: rgba(255,255,255,.9);
+  }
+  /* 图片容器：紧跟副标题下方 0.5cm，底部距卡片边 0.75cm，与几何色块轻微重叠穿插 */
+  .card-media{
+    position: relative;
+    z-index: 2;
+    flex: 1;
+    margin-top: .5cm;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 14px 26px -14px rgba(90,45,15,.55);
+  }
+  .showcase-card img{
+    width: 100%;
+    height: 100%;
+    object-fit: cover;                         /* 适量裁剪放大，填满图片区 */
+    object-position: center top;               /* 顶部对齐，优先保留微博标题内容 */
+    display: block;
+  }
+  /* 底部斜向几何切割色块：同色系深浅橘棕 */
+  .showcase-card::before,
+  .showcase-card::after{
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .showcase-card::before{                       /* 深一档斜向大色块 */
+    height: 24%;
+    background: #D69045;
+    clip-path: polygon(0 52%, 100% 12%, 100% 100%, 0 100%);
+  }
+  .showcase-card::after{                        /* 浅一档斜向小色块，轻微顶入图片底部边缘 */
+    height: 17%;
+    background: #F3C88C;
+    clip-path: polygon(0 100%, 38% 22%, 72% 62%, 100% 30%, 100% 100%);
+  }
+  .showcase-card.active{
+    transform: translate(-50%, -50%) scale(1);
+    z-index: 3;
+  }
+  .showcase-card.active:hover{
+    transform: translate(-50%, -53%) scale(1); /* hover 轻微上浮 */
+  }
+  .showcase-card.prev{
+    transform: translate(calc(-50% - 18.9vw), -50%) scale(.58);   /* 逐渐变小并向左滚出 */
+    z-index: 2;                                /* 层级低于中间卡片，被其遮挡 */
+  }
+  .showcase-card.next{
+    transform: translate(calc(-50% + 18.9vw), -50%) scale(.58);   /* 逐渐变小并向右滚出 */
+    z-index: 2;
+  }
+  .showcase-card.hidden{
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* 圆形左右箭头 */
+  .showcase-arrow{
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(0,0,0,.18);
+    background: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: background .25s ease, color .25s ease, border-color .25s ease;
+    color: #161616;
+    font-size: 24px;
+    line-height: 1;
+  }
+  .showcase-arrow:hover{
+    background: #161616;
+    color: #fff;
+    border-color: #161616;
+  }
+  .showcase-arrow.prev{ left: 2vw; }
+  .showcase-arrow.next{ right: 2vw; }
+
+  /* 轮播指示器（pagination dots） */
+  .showcase-dots{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin: 24px 0 10px;
+  }
+  .showcase-dot{
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: none;
+    padding: 0;
+    background: rgba(22,22,22,.16);           /* 非激活：低饱和浅色态 */
+    cursor: pointer;
+    transition: background .3s ease, transform .3s ease;
+  }
+  .showcase-dot:hover{
+    background: rgba(22,22,22,.42);
+  }
+  .showcase-dot.active{
+    background: #161616;                      /* 激活：实心高亮态 */
+    transform: scale(1.2);
+  }
+
+  /* ---------- 第六屏：公众号专项作品集网格 ---------- */
+  .mp-portfolio{
+    position: relative;
+    z-index: 70;
+    min-height: 100vh;
+    background-color: #f0eee9;
+    padding: 9vh 0 11vh;        /* 左右不留边，网格线直达网页最边上 */
+    font-family: "SimSun", "Songti SC", serif;   /* 与第四/五屏标题字体一致 */
+    color: #332f29;
+  }
+  /* 顶部：左标题+竖排筛选，右侧小字说明 */
+  .mp-top{
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 40px;
+    padding: 0 5.5vw 0 4vw;     /* 左侧与导航栏 Lamanna 的 L 对齐（4vw），网格全区贯通 */
+    margin-bottom: 6vh;         /* 与下方网格拉开距离 */
+  }
+  .mp-title{
+    font-size: clamp(30px, 3.4vw, 54px);
+    font-weight: 800;
+    letter-spacing: .02em;
+    line-height: 1.2;
+    margin-left: -.08em;        /* 光学对齐：宋体"公"字形左留白，墨边与 Filter 的 F 齐平 */
+    margin-bottom: 1.8vh;       /* 筛选标签贴近标题 */
+  }
+  .mp-filters{
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  .mp-filter-label{
+    font-size: 13px;
+    letter-spacing: .38em;
+    color: #9a948a;
+    padding-top: 7px;
+    user-select: none;
+  }
+  .mp-filter-list{
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .mp-filter{
+    align-self: flex-start;
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    font-size: 14px;
+    color: #5b554c;
+    padding: 5px 13px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background .3s ease, color .3s ease;
+  }
+  .mp-filter:hover{ color: #2b2823; }
+  .mp-filter.active{
+    background: #e5dfd1;             /* 选中：浅色底色高亮 */
+    color: #2b2823;
+    font-weight: 600;
+  }
+  .mp-note{
+    max-width: 290px;
+    margin: 0;
+    padding-top: 8px;
+    font-size: 13px;
+    line-height: 2;
+    color: #9a948a;
+    text-align: right;
+  }
+  /* 作品网格：黑色细线分割，卡片与页面同色一体 */
+  .mp-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(252px, 1fr));
+    border-top: 1px solid #111;    /* 顶线与卡片边框同机制渲染，粗细完全一致 */
+  }
+  .mp-card{
+    background: transparent;               /* 与页面同色，一体感 */
+    border: 0;
+    border-right: 1px solid #111;          /* 列间竖线（最右列由 JS 移除） */
+    border-bottom: 1px solid #111;         /* 下方横线 */
+    border-radius: 0;
+    padding: 14px 26px 12px;   /* 上下留白收紧，卡片整体变矮，内容字号不变 */
+    display: flex;
+    flex-direction: column;
+    transition: transform .4s cubic-bezier(.22,.61,.36,1),
+                background .4s ease;
+    will-change: transform;
+  }
+  .mp-card:hover{
+    transform: translateY(-4px);
+    background: rgba(0,0,0,.025);          /* 悬浮仅微亮，保持通透 */
+  }
+  .mp-card[data-href]{ cursor: pointer; }  /* 带链接卡片：手型提示可点击 */
+  .mp-card{ position: relative; }
+  .mp-card .mp-corner-year{
+    position: absolute;
+    top: 10px;
+    left: 14px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    color: #111;
+    opacity: .6;
+    z-index: 5;
+  }
+  .mp-card-name{
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    margin: 0 0 10px;
+  }
+  /* 手机预览图区域：图片完整包含、绝不溢出 */
+  .mp-preview{
+    flex: 0 0 auto;          /* 不拉伸，高度由比例决定，卡片整体更矮 */
+    overflow: hidden;
+    background: transparent;
+    aspect-ratio: 1 / 1;     /* 统一正方形，行高随之降低 */
+    width: 100%;       /* 由 3:4 压扁，格子整体高度缩小 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .mp-preview img{
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  /* 单图 4:5 竖版预览：宽缩至卡片 2/3，等比缩小，居中留白 */
+  .mp-preview-tall{
+    aspect-ratio: 4 / 5;
+    width: 66.7%;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 10px;
+  }
+  .mp-preview-tall img{
+    object-fit: cover;
+    object-position: left 30%;   /* 内容向左、向下对齐一点 */
+  }
+
+  /* ---------- 卡8：断更23天 · 整体缓慢自转 + 中心静态文字 ---------- */
+  .mp-xuan-wrap{
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .mp-xuan-bg{
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    transform-origin: center center;
+    animation: xuanWhole 24s linear infinite;
+    will-change: transform;
+  }
+  @keyframes xuanWhole {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  .mp-xuan-center-text{
+    position: absolute;
+    left: 0; right: 0; top: 50%;
+    transform: translateY(-50%);
+    z-index: 8;
+    pointer-events: none;
+    color: #2D2A28;
+    font-family: "SimSun", "Songti SC", serif;
+    text-align: center;
+  }
+
+  /* ---------- 青年之声：复古电视机外壳 ---------- */
+  .mp-tv{
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6%;
+  }
+  .mp-tv-body{
+    width: 88%;
+    height: 82%;
+    background: linear-gradient(145deg, #A6D3C4 0%, #8EC4B4 100%);
+    border-radius: 14% 14% 10% 10% / 18% 18% 8% 8%;
+    box-shadow:
+      inset 0 2px 4px rgba(255,255,255,.4),
+      inset 0 -3px 8px rgba(60,110,95,.25),
+      0 8px 16px rgba(80,100,90,.18);
+    display: flex;
+    padding: 5% 4% 6%;
+    gap: 3%;
+    position: relative;
+  }
+  .mp-tv-frame{
+    flex: 1;
+    height: 88%;
+    margin-top: 4%;
+    background: #F5E4A5;
+    border-radius: 4% 4% 3% 3% / 6% 6% 3% 3%;
+    padding: 3.5% 3% 4%;
+    box-shadow:
+      inset 0 -2px 6px rgba(160,130,60,.35),
+      0 0 0 2px rgba(200,170,90,.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .mp-tv-frame img{
+    width: 96%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 2%;
+    box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  }
+  .mp-tv-panel{
+    width: 22%;
+    height: 88%;
+    margin-top: 4%;
+    background: linear-gradient(180deg, #F5B0BC 0%, #ED9AA8 100%);
+    border-radius: 8% 8% 6% 6%;
+    box-shadow:
+      inset 0 2px 4px rgba(255,255,255,.4),
+      inset 0 -2px 6px rgba(160,80,95,.3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-evenly;
+    padding: 12% 0;
+  }
+  .mp-tv-knob{
+    width: 54%;
+    aspect-ratio: 1;
+    background: radial-gradient(circle at 35% 30%, #555 0%, #222 60%, #111 100%);
+    border-radius: 50%;
+    box-shadow:
+      inset 0 2px 3px rgba(255,255,255,.15),
+      inset 0 -3px 5px rgba(0,0,0,.6),
+      0 2px 4px rgba(0,0,0,.35);
+    position: relative;
+  }
+  .mp-tv-knob::after{
+    content: '';
+    position: absolute;
+    top: 12%; left: 45%;
+    width: 10%; height: 26%;
+    background: rgba(255,255,255,.2);
+    border-radius: 2px;
+    transform: rotate(-25deg);
+  }
+  .mp-tv-legs{
+    width: 70%;
+    height: 8%;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 8%;
+  }
+  .mp-tv-legs span{
+    width: 20%;
+    height: 100%;
+    background: #2E2E2E;
+    border-radius: 0 0 30% 30% / 0 0 50% 50%;
+    box-shadow: 0 2px 3px rgba(0,0,0,.3);
+  }
+  @media (max-width: 768px){
+    .mp-tv-body{ width: 94%; height: 80%; }
+    .mp-tv-frame img{ width: 94%; }
+  }
+
+  /* 底部圆框行：在同一行各卡片底部对齐 */
+  .mp-card > .mp-foot,
+  .mp-card > .mp-tags{ margin-top: auto; padding-top: 10px; }
+  /* 卡片4/5：手持手机框（手掌已改为草点缀） */
+  .mp-preview-hand{ position: relative; overflow: visible; }
+  .mp-device{
+    position: relative;
+    aspect-ratio: 9 / 18.6;
+    transform: rotate(-5deg);
+  }
+  .mp-preview-hand .mp-device{
+    width: 36%;                 /* 缩小一点，与左列中线对齐 */
+    margin: 3% auto 0;
+  }
+  .mp-screen{
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: #0f0d0b;
+    border-radius: 13%;
+    padding: 3.2%;
+    box-shadow: 0 14px 26px -12px rgba(60,50,35,.55);
+  }
+  .mp-screen::before{              /* 灵动岛 */
+    content: "";
+    position: absolute;
+    top: 2%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 26%;
+    height: 3.4%;
+    background: #000;
+    border-radius: 999px;
+    z-index: 2;
+  }
+  .mp-screen img{
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    border-radius: 9.5%;
+    display: block;
+  }
+  /* 小草点缀：替代手掌，置于手机右下侧，不遮挡左下角标签 */
+  .mp-grass{
+    position: absolute;
+    right: 2%;
+    bottom: 3%;
+    width: 26%;
+    z-index: 2;
+    pointer-events: none;
+    filter: drop-shadow(0 3px 4px rgba(70,90,50,.25));
+  }
+  /* 网格11 白底图：白边与奶油底色相乘融合，视觉上扣掉白边 */
+  .mp-img-noborder{
+    mix-blend-mode: multiply;
+  }
+  /* 卡片6：网格11「20」插画 + 珊瑚红粉丝粒子环绕 */
+  .mp-orbit-wrap{
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+  }
+  .mp-orbit-wrap > img{
+    position: absolute;
+    z-index: 2;
+    top: 50%; left: 50%;
+    width: 82%; height: 82%;
+    transform: translate(-50%, -50%);
+    object-fit: contain;
+  }
+  .mp-orbit-dot{
+    position: absolute;
+    top: 50%; left: 50%;
+    width: var(--s);
+    height: var(--s);
+    margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2);
+    border-radius: 50%;
+    background: var(--c);
+    opacity: .8;
+    transform: rotate(var(--a)) translateX(var(--r));
+    animation: mp-orbit var(--d) linear infinite;
+    animation-direction: var(--dir, normal);
+    z-index: 1;
+    pointer-events: none;
+  }
+  @keyframes mp-orbit{
+    to{ transform: rotate(calc(var(--a) + 360deg)) translateX(var(--r)); }
+  }
+  .mp-placeholder{
+    font-size: 12px;
+    letter-spacing: .18em;
+    color: #b1ab9e;
+    user-select: none;
+  }
+  /* 卡片1：双手机叠放预览（参考 CHANI 双机造型） */
+  .mp-phones{
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+  .mp-phone{
+    position: absolute;
+    top: 50%;
+    width: 41%;
+    aspect-ratio: 9 / 18.5;
+    background: #fff;
+    border-radius: 17px;
+    padding: 4px;
+    box-shadow: 0 12px 24px -11px rgba(60,50,35,.5);
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+  .mp-phone img{
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    border-radius: 13px;
+    display: block;
+  }
+  .mp-phone-a{ left: 9%;  transform: translateY(-50%) rotate(-7deg); z-index: 2; }
+  .mp-phone-b{ right: 9%; transform: translateY(-54%) rotate(6deg);  z-index: 1; }
+  /* 卡片2：单框轮播，图片统一尺寸淡入淡出 */
+  .mp-slides{
+    position: relative;
+    width: 76%;
+    aspect-ratio: 1 / 1;       /* 正方形（变窄后依旧正方） */
+    margin: auto;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 12px 24px -11px rgba(60,50,35,.5);
+  }
+  .mp-slides img{
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    opacity: 0;
+    transition: opacity .8s ease;
+  }
+  .mp-slides img.mp-on{ opacity: 1; }
+  /* 左下角职责圆框标签（绿=打字机1抹茶色，蓝=打字机2雾蓝色） */
+  .mp-foot{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+  }
+  .mp-tags{
+    display: flex;
+    gap: 8px;
+  }
+  /* 标签行统一由 .mp-card > .mp-tags 规则推到卡片底部对齐 */
+  .mp-tag{
+    font-size: 12px;
+    line-height: 1;
+    padding: 6px 13px;
+    border-radius: 999px;
+    letter-spacing: .06em;
+    white-space: nowrap;
+  }
+  .mp-tag-green{ background: #C2C89B; color: #484F2E; }   /* 第一台打字机抹茶绿 */
+  .mp-tag-blue{ background: #92AFC8; color: #2E4A63; }    /* 第二台打字机雾蓝 */
+  .mp-year{
+    font-size: 12px;                 /* 与圆框标签同字号 */
+    color: #5b554c;
+    letter-spacing: .06em;
+  }
+  .mp-tag-sk{
+    height: 16px;
+    border-radius: 5px;
+    background: #ece7da;
+  }
+  /* 筛选淡出/淡入 */
+  .mp-card.mp-out{
+    opacity: 0;
+    transform: scale(.96);
+  }
+  /* 最右列卡片：去掉右侧竖线，不做外框 */
+  .mp-card.mp-last{ border-right: 0; }
+
+  @media (max-width: 768px){
+    .mp-portfolio{ padding: 60px 0 70px; }
+    .mp-title{ margin-bottom: 10px; font-size: 27px; }
+    .mp-top{ flex-direction: column; gap: 18px; padding: 0 6vw 0 4vw; margin-bottom: 34px; }
+    .mp-note{ text-align: left; max-width: none; padding-top: 0; }
+    .mp-grid{ grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    .mp-card{ padding: 10px 14px 8px; }
+    .mp-card-name{ font-size: 14px; margin-bottom: 8px; }
+    .mp-filter{ font-size: 13px; }
+  }
+
+  /* 页尾屏：深色 Hero 区块（深色容器嵌于奶油页面，页面整体背景不变） */
+  .page-footer-space{
+    height: 1.25cm;
+    background-color: #f0eee9;
+  }
+  .gigs-hero{
+    position: relative;
+    width: min(88vw, 1360px);
+    min-height: 80vh;
+    border-radius: 24px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 9vh 4vw 8vh;
+    background: #f0eee9;
+    box-shadow: 0 26px 56px -22px rgba(58,52,42,.13);
+  }
+  /* 缓慢漂移的云雾光晕（纯渐变模拟，极低透明度） */
+  .gigs-hero::before{
+    content: "";
+    position: absolute;
+    inset: -22%;
+    pointer-events: none;
+    background:
+      radial-gradient(36% 28% at 22% 36%, rgba(150,52,68,.04), transparent 70%),
+      radial-gradient(30% 26% at 76% 22%, rgba(106,116,70,.045), transparent 70%),
+      radial-gradient(44% 34% at 62% 80%, rgba(150,52,68,.03), transparent 72%);
+    animation: gigs-drift 30s ease-in-out infinite alternate;
+  }
+  @keyframes gigs-drift{
+    from{ transform: translate3d(-2.4%, -1.6%, 0) scale(1); }
+    to{   transform: translate3d(2.4%, 2%, 0) scale(1.06); }
+  }
+  .gigs-title{
+    position: relative; z-index: 2;
+    margin: 0;
+    color: #332f29;
+    font-family: "Songti SC", "SimSun", serif;
+    font-weight: 500;
+    font-size: clamp(30px, 4.2vw, 54px);
+    letter-spacing: .14em;
+    text-indent: .14em;
+  }
+  .gigs-sub{
+    position: relative; z-index: 2;
+    margin: calc(2.4vh + 0.5cm) 0 0;
+    color: rgba(51,47,41,.6);
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: clamp(13px, 1.05vw, 15.5px);
+    letter-spacing: .18em;
+    line-height: 2.1;
+  }
+  .gigs-cta{
+    position: relative; z-index: 2;
+    margin-top: calc(4.2vh + 0.5cm);
+    padding: 13px 36px;
+    background: transparent;
+    border: 1px solid rgba(150,52,68,.9);
+    border-radius: 8px;
+    color: #7d3242;
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 12px;
+    letter-spacing: .24em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background .35s ease, border-color .35s ease, box-shadow .35s ease;
+  }
+  .gigs-cta:hover, .gigs-cta:focus-visible{
+    background: rgba(150,52,68,.14);
+    border-color: rgba(150,52,68,1);
+    box-shadow: 0 0 24px rgba(150,52,68,.22), inset 0 0 12px rgba(150,52,68,.08);
+  }
+  .gigs-cta:focus-visible{ outline: 2px solid rgba(51,47,41,.45); outline-offset: 3px; }
+  /* 卡片区：三行 5/4/3，留白充足互不重叠，轻微上下偏移营造漂浮感 */
+  .gigs-cards{
+    position: relative; z-index: 2;
+    margin-top: calc(7vh + 1.5cm);
+    width: min(1200px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 4.4vh;
+  }
+  .gigs-row{
+    list-style: none;
+    margin: 0; padding: 0;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: clamp(20px, 2.6vw, 36px);
+  }
+  .gigs-card{
+    width: var(--w, 100px);
+    aspect-ratio: 1;
+    border-radius: 13px;
+    transform: translateY(var(--ty, 0px));
+    background:
+      radial-gradient(130% 120% at 28% 20%, rgba(255,255,255,.28), transparent 55%),
+      var(--card-c, #C2C89B);
+    border: 1px solid rgba(255,255,255,.35);
+    box-shadow: 0 14px 30px rgba(74,66,52,.20);
+    transition: transform .4s cubic-bezier(.22,.61,.36,1), width .45s cubic-bezier(.22,.61,.36,1), border-color .4s ease, box-shadow .4s ease, filter .4s ease;
+  }
+  .gigs-card.gc{ --card-c: #C2C89B; }   /* 排版 · 抹茶绿 */
+  .gigs-card.bc{ --card-c: #92AFC8; }   /* 编辑 · 雾蓝 */
+  .gigs-card.gc .gigs-card-in{ color: #484F2E; }
+  .gigs-card.bc .gigs-card-in{ color: #2E4A63; }
+  .gigs-card-in{
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    font-weight: 500;
+    font-size: calc(var(--w, 150px) * .3);
+    transition: transform .4s cubic-bezier(.22,.61,.36,1);
+  }
+  .gigs-card:hover{
+    border-color: rgba(255,255,255,.6);
+    filter: brightness(1.05);
+    box-shadow:
+      0 22px 44px rgba(74,66,52,.26),
+      0 8px 30px rgba(150,52,68,.16);
+  }
+  .gigs-card:hover .gigs-card-in{ transform: translateY(-6px); }
+  /* 点击展开：方块放大至 3 倍并显示能力详情（布局重排展开，文字保持清晰实字号） */
+  .gigs-expandable{ cursor: pointer; }
+  .gigs-card.gigs-open{
+    width: calc(var(--w, 100px) * 3);
+    aspect-ratio: auto;
+    height: auto;
+    min-height: calc(var(--w, 100px) * 3);
+    z-index: 30;
+  }
+  .gigs-card.gigs-open:hover{ filter: none; }
+  .gigs-card.gigs-open:hover .gigs-card-in{ transform: none; }
+  .gigs-card.gigs-open .gigs-card-in{
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: 6% 7%;
+    overflow: hidden;
+  }
+  .gigs-card.gigs-open .gigs-char{ display: none; }
+  .gigs-detail{ display: none; }
+  .gigs-card.gigs-open .gigs-detail{ display: block; animation: gigs-detail-in .4s ease .1s both; }
+  .gigs-detail h4{
+    margin: 0 0 .5em;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    line-height: 1.3;
+  }
+  .gigs-detail p{
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.8;
+    text-align: justify;
+  }
+  @keyframes gigs-detail-in{
+    from{ opacity: 0; transform: translateY(8px); }
+    to{ opacity: 1; transform: none; }
+  }
+  .gs{ --w: 91px; }
+  .gm{ --w: 100px; }
+  .gl{ --w: 110px; }
+  /* ---------- 影像创作屏（悬挂相框作品墙） ---------- */
+  .pex-screen{
+    --pbg:#f0eee9; --pink:#332f29; --pmuted:#6f695e;
+    --pwine:#5b1027; --pwine2:#8f2140;
+    --pframe:linear-gradient(135deg,#efd08c,#7a531f 55%,#ffe2a0);
+    --pshadow:0 26px 54px -30px rgba(74,66,52,.45), 0 10px 22px rgba(74,66,52,.16);
+    position: relative;
+    min-height: 100vh;
+    background: var(--pbg);
+    color: var(--pink);
+    font-family: Inter, Poppins, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+    overflow: hidden;
+  }
+  .pex-screen *{ box-sizing: border-box; }
+  .pex-hero{
+    position: relative; z-index: 1;
+    min-height: 100vh; width: min(1320px,100%); margin: 0 auto;
+    padding: 84px clamp(22px,5vw,72px) 70px;
+    display: grid; grid-template-columns: minmax(360px,.86fr) 1.14fr;
+    gap: clamp(28px,5vw,84px); align-items: start;
+  }
+  .pex-copy{ max-width: 590px; animation: pex-rise .9s cubic-bezier(.2,.8,.2,1) both; }
+  .pex-grid-img{
+    display: block;
+    width: 150px;
+    max-width: 100%;
+    height: auto;
+    margin: 0 0 76px;                                /* 与下方文字间距 2cm */
+    border-radius: 10px;
+    box-shadow: 0 18px 38px -18px rgba(74,66,52,.35);
+  }
+  .pex-title{
+    margin: 0;
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: clamp(34px, 3.6vw, 52px);
+    line-height: 1.1;
+    letter-spacing: .14em;
+    font-weight: 600;
+    color: var(--pink);
+  }
+  .pex-lead{ margin: 24px 0 12px; color: var(--pmuted); font-size: clamp(15px,1.35vw,18px); line-height: 1.75; max-width: 520px; }
+  .pex-special{ margin: 0 0 34px; color: #57503f; font-size: 14px; letter-spacing: .04em; }
+  .pex-btn{
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 14px 24px; border: 1px solid rgba(255,255,255,.34); border-radius: 3px;
+    background: linear-gradient(180deg,var(--pwine2),var(--pwine)); color: #fff;
+    text-decoration: none; letter-spacing: .2em;
+    font-size: 13px; font-weight: 600; font-family: inherit;
+    cursor: pointer;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.14),0 14px 30px rgba(74,66,52,.28);
+    transition: .25s ease;
+  }
+  .pex-btn:hover{ transform: translateY(-2px); filter: brightness(1.15); box-shadow: 0 18px 38px rgba(74,66,52,.34); }
+  .pex-wall{ position: relative; min-height: 640px; transform-style: preserve-3d; animation: pex-wallIn 1s .1s cubic-bezier(.2,.8,.2,1) both; }
+  .pex-hang{ position: absolute; transform-origin: 50% 0; filter: drop-shadow(0 24px 22px rgba(74,66,52,.26)); }
+  .pex-string{ position: absolute; left: 50%; top: -86px; width: 190px; height: 96px; overflow: visible; transform: translateX(-50%); z-index: 0; }
+  .pex-string line{ stroke: #b7ab99; stroke-width: 1.35; stroke-linecap: round; opacity: .9; }
+  .pex-pin{ fill: #c9a558; stroke: #7a5a1f; stroke-width: 2; }
+  .pex-frame{
+    position: relative; margin: 0;
+    background: var(--pframe); padding: 7px;
+    box-shadow: var(--pshadow); border: 1px solid rgba(0,0,0,.22);
+    z-index: 1; transition: filter .2s ease, translate .2s ease;
+  }
+  .pex-frame img{ display: block; width: 100%; height: auto; background: #111; }
+  .pex-f1{ width: min(390px,44vw); --r:-8deg; transform: rotate(-8deg); animation: pex-sway 7s ease-in-out infinite; }
+  .pex-f2{ width: min(300px,34vw); --r:6deg; transform: rotate(6deg); animation: pex-sway 8s .4s ease-in-out infinite; }
+  .pex-f3{ width: min(360px,41vw); --r:-4deg; transform: rotate(-4deg); animation: pex-sway 7.5s .8s ease-in-out infinite; }
+  .pex-frame:hover{ animation: pex-jiggle 2.2s ease-in-out infinite; }
+  .pex-hang:nth-child(1){ left: 2%; top: 182px; z-index: 3; animation: pex-pop .8s .15s cubic-bezier(.2,.9,.25,1.2) both; }
+  .pex-hang:nth-child(2){ left: 47%; top: 78px; z-index: 2; animation: pex-pop .8s .3s cubic-bezier(.2,.9,.25,1.2) both; }
+  .pex-hang:nth-child(3){ left: 34%; top: 360px; z-index: 1; animation: pex-pop .8s .45s cubic-bezier(.2,.9,.25,1.2) both; }
+  .pex-frame:after{
+    content: ""; position: absolute; inset: 7px; pointer-events: none;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.22), inset 0 -28px 50px rgba(0,0,0,.22);
+  }
+  .pex-frame-label{
+    position: absolute; left: 50%; top: 50%; z-index: 3;
+    transform: translate(-50%, calc(-50% + 8px));
+    padding: 6px 14px;
+    background: rgba(30,26,20,.78);
+    color: #f5f1e8;
+    font-size: 13px; letter-spacing: .08em;
+    border-radius: 999px; white-space: nowrap;
+    opacity: 0; pointer-events: none;
+    transition: opacity .35s ease, transform .35s ease;
+  }
+  .pex-frame:hover .pex-frame-label{
+    opacity: 1; transform: translate(-50%, -50%);
+  }
+  @keyframes pex-rise{ from{ opacity: 0; transform: translateY(26px); } to{ opacity: 1; transform: none; } }
+  @keyframes pex-wallIn{ from{ opacity: 0; transform: translateY(24px) scale(.985); } to{ opacity: 1; transform: none; } }
+  @keyframes pex-pop{
+    from{ opacity: 0; transform: translateY(34px) rotate(0deg) scale(.94); }
+    to{ opacity: 1; transform: translateY(0) rotate(var(--r,0deg)) scale(1); }
+  }
+  @keyframes pex-sway{ 0%,100%{ translate: 0 0; } 50%{ translate: 0 -5px; } }
+  @keyframes pex-jiggle{
+    0%,100%{ transform: rotate(var(--r,0deg)); }
+    25%{ transform: rotate(calc(var(--r,0deg) + 2.2deg)); }
+    55%{ transform: rotate(calc(var(--r,0deg) - 1.9deg)); }
+    80%{ transform: rotate(calc(var(--r,0deg) + 1deg)); }
+  }
+  @media (max-width: 980px){
+    .pex-hero{ grid-template-columns: 1fr; padding-top: 120px; align-items: start; }
+    .pex-copy{ max-width: 760px; }
+    .pex-wall{ min-height: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 34px 18px; margin-top: 16px; transform: none !important; }
+    .pex-hang{ position: relative; left: auto !important; top: auto !important; right: auto !important; bottom: auto !important; width: auto; transform: none !important; animation: none !important; }
+    .pex-hang:nth-child(3){ grid-column: 1/-1; max-width: 520px; justify-self: center; }
+    .pex-f1,.pex-f2,.pex-f3{ width: 100%; transform: rotate(var(--r,0deg)); }
+    .pex-string{ display: none; }
+  }
+  @media (max-width: 560px){
+    .pex-hero{ padding-left: 18px; padding-right: 18px; }
+    .pex-wall{ grid-template-columns: 1fr; }
+    .pex-hang:nth-child(3){ grid-column: auto; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .pex-screen *, .pex-screen *:before, .pex-screen *:after{ animation: none !important; transition: none !important; }
+    .pex-wall{ transform: none !important; }
+  }
+  /* ---------- 第九屏：居中作品卡片（与背景同系奶油色） ---------- */
+  .card-screen{
+    min-height: 100vh;
+    background: #f0eee9;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    padding: 38px 0 38px; /* 卡片顶部距网页上边 1cm ≈ 38px；底部留白 1cm */
+  }
+  /* 最底屏「其他」：空白页 */
+  .other-screen{
+    min-height: 100vh;
+    background: #f0eee9;
+  }
+  /* 过渡屏：分镜铺展，细览画面（影像创作屏与翻牌卡屏之间）。
+     section 本身是文档流里的奶油色占位；.dv-overlay 固定覆盖整屏，
+     由 ScrollTrigger 在「逃2」画框到顶时淡入、滚出区间时淡出 */
+  .divider-screen{
+    min-height: 100vh;
+    background: #f0eee9;
+  }
+  .dv-overlay{
+    position: fixed; inset: 0;
+    z-index: 50; /* 高于作品墙，低于导航(100) */
+    background: #f0eee9;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    overflow: hidden;
+    opacity: 0; pointer-events: none;
+  }
+  /* prefers-reduced-motion：不做覆盖动画，按普通区块在文档流中展示 */
+  .dv-overlay.dv-static{
+    position: static;
+    min-height: 100vh;
+    opacity: 1; pointer-events: auto;
+  }
+  .divider-text{
+    margin: 0;
+    white-space: nowrap;
+    font-family: "SimSun","Songti SC",serif;
+    /* 9 字 + 字距全部容纳进屏宽（留约 8% 边距），同时不超过屏高 18%；小屏下限 26px */
+    font-size: max(26px, min(9vw, 18vh));
+    line-height: 1;
+    letter-spacing: .06em;
+    color: #332f29; font-weight: 400;
+  }
+  /* 文字与下方说明作为整体上移 2cm（GSAP 只动内部 .char，不覆盖父级） */
+  .divider-text, .dv-sub{ transform: translateY(-76px); }
+  /* 手动拆字：每个字符外包一层遮罩，斜向划入时在格内裁切，飞行轨迹不外露 */
+  .divider-text .char-mask{
+    display: inline-block;
+    overflow: hidden;
+    vertical-align: top;
+  }
+  .divider-text .char{
+    display: inline-block;
+    will-change: transform;
+  }
+  /* 副标题块：荧光绿点 + 大字距小标签 + 一段宋体说明 */
+  .dv-sub{
+    margin-top: clamp(34px, 7vh, 78px);
+    text-align: center;
+    width: 100%;
+  }
+  .dv-sub-kicker{
+    margin: 0 0 clamp(20px, 4.6vh, 52px);
+    display: flex; align-items: center; justify-content: center; gap: 14px;
+    font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: clamp(11px, .92vw, 16px);
+    font-weight: 600;
+    letter-spacing: .28em; text-indent: .28em;
+    color: #332f29;
+  }
+  .dv-dot{
+    width: 9px; height: 9px; border-radius: 50%;
+    background: #c9f54a; flex: none;
+  }
+  .dv-sub-desc{
+    margin: 0 auto;
+    max-width: min(680px, 80vw);
+    font-family: "SimSun","Songti SC",serif;
+    font-size: clamp(25px, 2.15vw, 30px);
+    line-height: 1.25;
+    letter-spacing: .1em;
+    color: #6f695e;
+  }
+  .card-stage{
+    /* 左右各距屏幕边缘 3.5cm ≈ 132px；高度占满一屏（上下各留 1cm） */
+    position: relative;
+    width: calc(100% - 264px);
+    min-height: calc(100vh - 76px);
+    perspective: 1000px;
+  }
+  .card-panel{
+    position: absolute; inset: 0;
+    background: #faf8f2;
+    border: 1px solid #e3ddcf;
+    border-radius: 18px;
+    box-shadow: 0 24px 60px rgba(74,66,52,.14);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; text-align: center;
+    padding: 64px 48px;
+    transform-origin: 50% 100%; /* 牌堆：底边中心支点 */
+  }
+  /* 一叠卡片纵向错位堆叠：层间 y +14px、scale -0.03、亮度 -4% */
+  .card-front{ will-change: transform, opacity, filter; }
+  .card-back{ transform: translateY(14px) scale(.97); filter: brightness(96%); will-change: transform, opacity, filter; }
+  .card-bottom{ transform: translateY(28px) scale(.94); filter: brightness(92%); }
+  /* 卡4/卡5：牌堆第四、五层（初始静态，JS 翻牌时接管） */
+  .card-deep{ transform: translateY(42px) scale(.91); filter: brightness(88%); will-change: transform, opacity, filter; }
+  .card-deepest{ transform: translateY(56px) scale(.88); filter: brightness(84%); will-change: transform, opacity, filter; }
+  .card-more{
+    font-size: 13px; letter-spacing: .22em; text-indent: .22em;
+    color: #8a8375; margin: 0;
+  }
+  .card-works{ list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+  .card-works li{
+    font-family: "SimSun","Songti SC",serif;
+    font-size: clamp(18px,1.6vw,24px);
+    letter-spacing: .1em; text-indent: .1em;
+    color: #4a443a;
+  }
+  .card-kicker{
+    font-size: 12px; letter-spacing: .32em; text-indent: .32em;
+    color: #8a8375; margin: 0;
+  }
+  .card-title{
+    font-family: "SimSun","Songti SC",serif;
+    font-size: clamp(26px,2.6vw,40px);
+    letter-spacing: .14em; text-indent: .14em;
+    color: #332f29; font-weight: 400; margin: 0;
+  }
+  .card-line{
+    width: 56px; height: 1px; background: #c9c1af; display: block; margin-top: 6px;
+  }
+  /* 卡1：左文右图编辑排版（顶小标签+大标题，底部小字信息+正文） */
+  .card-front{
+    display: block; padding: 0; overflow: hidden;
+    text-align: left;
+  }
+  .card1-inner{ height: 100%; display: flex; }
+  .card1-text{
+    flex: 0 0 54%; box-sizing: border-box;
+    display: flex; flex-direction: column;
+    padding: clamp(26px,3.6vh,52px) clamp(26px,3vw,58px);
+  }
+  .card1-kicker{
+    margin: 0; font-size: 11px; letter-spacing: .34em;
+    color: #8a8375;
+  }
+  .card1-title{
+    margin: clamp(20px,3.4vh,44px) 0 0;
+    font-family: "SimSun","Songti SC",serif;
+    font-weight: 400;
+    font-size: clamp(26px,2.7vw,42px);
+    line-height: 1.3; letter-spacing: .1em;
+    color: #332f29;
+  }
+  .card1-bottom{ margin-top: auto; }
+  .card1-meta{
+    margin: 0 0 clamp(18px,2.6vh,30px);
+    font-size: 11px; letter-spacing: .34em; text-indent: .34em;
+    color: #8a8375;
+  }
+  .card1-desc{
+    margin: 0;
+    font-size: clamp(11px,.92vw,13px); line-height: 1.95;
+    color: #6f695e; letter-spacing: .04em; text-align: justify;
+  }
+  .card1-desc + .card1-desc{ margin-top: .7em; }
+  .card1-media{
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .card1-media img{
+    flex: 1; min-height: 0;
+    width: 100%; object-fit: cover; display: block;
+  }
+  @media (max-width: 980px){
+    .card-stage{ width: calc(100% - 48px); min-height: 780px; }
+    .card-panel{ padding: 48px 24px; }
+    .card1-inner{ flex-direction: column; }
+    .card1-media{ order: -1; flex: 0 0 130px; flex-direction: row; gap: 4px; }
+    .card1-text{ flex: 1; padding: 20px 22px 24px; }
+    .card1-desc{ line-height: 1.75; }
+    .card1-title{ margin-top: 12px; }
+    .card3-inner{ padding: 20px 20px 22px; }
+    .card3-table .col-no{ width: 26px; }
+    .card3-table .col-move{ width: 58px; }
+    .card3-table .col-shot{ width: 50px; }
+    .card3-table .col-time{ width: 42px; }
+    .card3-table .col-audio{ width: 74px; }
+    .card3-table th{ padding: 4px 4px; font-size: 8px; letter-spacing: .08em; }
+    .card3-table td{ padding: 3px 4px; font-size: 8px; line-height: 1.4; }
+    /* 卡4 小屏：模板改流式，避免绝对定位元素重叠 */
+    .card4-inner{ display: flex; flex-direction: column; gap: 14px; padding: 22px; box-sizing: border-box; overflow: hidden; }
+    .card4-headline{ position: static; font-size: clamp(20px,5.4vw,26px); white-space: normal; }
+    .card4-photo{ position: static; width: 46%; height: auto; aspect-ratio: 3/4; }
+    .card4-photo .ph-city{ left: -4%; bottom: -10%; }
+    .card4-photo .ph-stamp{ right: -8%; bottom: -14%; }
+    .card4-bio{ position: static; width: 100%; }
+  }
+  /* 卡2：参考红色区块版式（左上大标题+右上编号、说明段、底部三张作品图、胶囊标签） */
+  .card-back{
+    display: block; padding: 0; overflow: hidden;
+    text-align: left;
+  }
+  .card2-inner{
+    height: 100%; box-sizing: border-box;
+    display: flex; flex-direction: column;
+    /* 右 padding 归零：文字与图列共用同一右基准；右侧留白由文字元素自带 */
+    padding: clamp(26px,3.6vh,52px) 0 clamp(20px,3vh,46px) clamp(24px,3vw,54px);
+  }
+  .card2-head, .card2-intro{ padding-right: clamp(24px,3vw,54px); }
+  .card2-head{ display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+  .card2-kicker{
+    margin: 0 0 clamp(20px,3.4vh,44px); font-size: 11px; letter-spacing: .34em;
+    color: #8a8375;
+  }
+  .card2-title{
+    margin: 0;
+    font-family: "SimSun","Songti SC",serif; font-weight: 400;
+    font-size: clamp(22px,2.6vw,40px); line-height: 1.22; letter-spacing: .06em;
+    color: #332f29;
+  }
+  .card2-intro{
+    margin: clamp(10px,1.8vh,22px) 0 0;
+    font-size: clamp(11px,.92vw,13px); line-height: 1.95;
+    color: #6f695e; letter-spacing: .04em; text-align: justify;
+  }
+  /* 第一段右缘对齐第一张图（黑布2）右缘，整体下移 1.5cm ≈ 57px；
+     第二段紧随第一段末行排布，宽度与左侧空格一致（左缘、宽度同空格） */
+  .card2-inner{
+    --c2l: clamp(24px,3vw,54px);
+    --c2g: 12px;
+    --c2b: clamp(20px,3vh,46px);
+    /* 图列容器宽 = 内框 content 宽，故图项与普通流文字的 100% 基准一致，共用此值 */
+    --c2u: calc((100% - 3 * var(--c2g)) / 3.5);
+  }
+  .card2-intro.c2-w1{
+    max-width: calc(var(--c2u) * 2 + var(--c2g));
+    margin-top: calc(clamp(10px,1.8vh,22px) + 57px);
+  }
+  .card2-intro.c2-w2{
+    align-self: flex-start;
+    margin: .5em 0 0;
+    font-size: clamp(11px,.92vw,13px); line-height: 1.95;
+    text-align: left;
+  }
+  /* 图列：左留空槽 → 黑布2 → 黑布3 → 黑布1（半张被卡片右缘裁掉） */
+  .card2-inner{ position: relative; }
+  .card2-shots{
+    position: absolute;
+    left: clamp(24px,3vw,54px); right: 0;
+    bottom: var(--c2b);
+    display: flex; gap: 12px;
+  }
+  .card2-gapcell, .card2-shot{
+    flex: 0 0 var(--c2u);
+  }
+  .card2-shot{ margin: 0; }
+  .card2-shot .card2-imgwrap{
+    border-radius: 12px; overflow: hidden; aspect-ratio: 16/9;
+    box-shadow: 0 12px 28px rgba(74,66,52,.12); background: #ece7dc;
+  }
+  .card2-shot img{ width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* 卡3/卡5：分镜表卡（block 铺满，避免继承牌堆 flex 居中） */
+  .card-bottom, .card-deepest{
+    display: block; padding: 0; overflow: hidden;
+    text-align: left;
+  }
+  .card3-inner{
+    height: 100%; box-sizing: border-box;
+    display: flex; flex-direction: column;
+    padding: clamp(20px,3vh,46px) clamp(24px,3vw,54px);
+  }
+  .card3-title{
+    margin: 0 0 clamp(10px,1.4vh,18px);
+    font-family: "SimSun","Songti SC",serif; font-weight: 700;
+    font-size: clamp(13px,1.1vw,15px); letter-spacing: .14em;
+    color: #332f29;
+  }
+  .card3-tablewrap{ flex: 1; min-height: 0; overflow: hidden; }
+  .card3-table{ width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .card3-table th{
+    font-weight: 400; text-align: left;
+    font-size: clamp(9px,.72vw,10px); letter-spacing: .18em; color: #8a8375;
+    padding: 6px 8px; border-bottom: 1.5px solid #c9c1af;
+    white-space: nowrap;
+  }
+  .card3-table td{
+    font-size: clamp(9px,.78vw,11px); line-height: 1.55;
+    color: #5d574c; letter-spacing: .02em;
+    padding: clamp(4px,.8vh,8px) 8px;
+    border-bottom: 1px solid #e3ddcf;
+    vertical-align: top;
+    word-break: break-all;
+  }
+  .card3-table tr:last-child td{ border-bottom: none; }
+  .card3-table .col-no{ width: 32px; text-align: center; }
+  .card3-table .col-move{ width: 118px; }
+  .card3-table .col-shot{ width: 78px; }
+  .card3-table .col-time{ width: 60px; white-space: nowrap; }
+  .card3-table .col-audio{ width: 148px; }
+  .card3-table td.col-no{
+    font-family: "SimSun","Songti SC",serif; color: #8a8375; text-align: center;
+  }
+  /* 卡4：THIS IS ME 杂志风模板（巨型衬线标题压图 + 左图叠放 + 右侧简介） */
+  .card-deep{
+    display: block; padding: 0; overflow: hidden;
+    text-align: left;
+  }
+  .card4-inner{ position: relative; height: 100%; }
+  .card4-headline{
+    position: absolute; top: 3.2%; left: 4.2%; z-index: 3;
+    margin: 0;
+    font-family: "SimSun","Songti SC",serif;
+    font-weight: 400; color: #2f2c28;
+    font-size: clamp(25px, 3.6vw, 51px);
+    line-height: 1.05; letter-spacing: .08em;
+    pointer-events: none;
+  }
+  .card4-headline span{ display: block; white-space: nowrap; }
+  .card4-headline .hl2{ text-align: right; }
+  .card4-photo{
+    position: absolute; left: 7%; top: calc(31% - 57px);
+    width: 36%; height: 60%; z-index: 2;
+  }
+  .card4-photo .ph-main{
+    position: absolute; inset: 0;
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+  .card4-photo .ph-city{
+    position: absolute; left: -7%; bottom: -13%;
+    width: 64%; z-index: 2; display: block;
+    box-shadow: 0 14px 30px rgba(74,66,52,.22);
+  }
+  .card4-photo .ph-stamp{
+    position: absolute; right: -12%; bottom: -11%;
+    width: 42%; z-index: 3; display: block;
+    transform: rotate(7deg);
+    padding: 5px; background: #fff;
+    box-shadow: 0 12px 26px rgba(74,66,52,.28);
+  }
+  .card4-bio{
+    position: absolute; left: 55%; top: calc(44% - 40px); width: 40%; z-index: 1;
+  }
+  .card4-bio p{
+    margin: 0;
+    font-size: clamp(10.5px,.92vw,12.5px); line-height: 1.7;
+    color: #6f695e; letter-spacing: .03em; text-align: justify;
+  }
+  .card4-bio .bio-faint{
+    margin-top: .9em;
+    color: #6f695e;
+  }
+  /* 卡2 小屏覆盖（必须置于卡2桌面样式之后，否则会被覆盖） */
+  @media (max-width: 980px){
+    .card2-inner{
+      --c2l: 22px; --c2g: 8px; --c2b: 24px;
+      padding: 20px 0 24px 22px;
+    }
+    .card2-head, .card2-intro{ padding-right: 22px; }
+    .card2-shots{ left: 22px; right: 0; bottom: 24px; gap: 8px; }
+  }
+  /* 入场：标题/按钮淡入上移，卡片依次 stagger（JS 进入视口触发） */
+  .gigs-anim .gigs-title, .gigs-anim .gigs-sub, .gigs-anim .gigs-cta{
+    opacity: 0; transform: translateY(24px);
+    transition: opacity .9s ease, transform .9s cubic-bezier(.22,.61,.36,1);
+  }
+  .gigs-anim .gigs-sub{ transition-delay: .16s; }
+  .gigs-anim .gigs-cta{ transition-delay: .32s; }
+  .gigs-anim.is-in .gigs-title, .gigs-anim.is-in .gigs-sub, .gigs-anim.is-in .gigs-cta{
+    opacity: 1; transform: none;
+  }
+  .gigs-anim .gigs-card{ opacity: 0; }
+  .gigs-anim.is-in .gigs-card{
+    animation: gigs-card-in .75s cubic-bezier(.22,.61,.36,1) both;
+    animation-delay: calc(.4s + var(--i, 0) * .07s);
+  }
+  @keyframes gigs-card-in{
+    from{ opacity: 0; transform: translateY(calc(var(--ty, 0px) + 28px)); }
+    to{ opacity: 1; transform: translateY(var(--ty, 0px)); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .gigs-hero::before{ animation: none !important; }
+    .gigs-anim .gigs-title, .gigs-anim .gigs-sub, .gigs-anim .gigs-cta{
+      opacity: 1 !important; transform: none !important; transition: none !important; animation: none !important;
+    }
+    .gigs-anim .gigs-card{
+      opacity: 1 !important; transform: translateY(var(--ty, 0px)) !important; transition: none !important; animation: none !important;
+    }
+    .gigs-card-in{ transition: none !important; }
+  }
+  @media (max-width: 768px){
+    .page-footer-space{ height: .75cm; padding: 0; }
+    .gigs-hero{ width: 92vw; min-height: auto; padding: 9vh 5vw 8vh; border-radius: 18px; }
+    .gigs-cards{ gap: 18px; margin-top: 5vh; }
+    .gigs-row{ gap: 14px; }
+    .gs, .gm, .gl{ --w: clamp(58px, 17vw, 82px); }
+  }
+  /* 矮视口：压缩 Hero 纵向空间，保证标题滚到底部时完整可见 */
+  @media (max-height: 900px){
+    .gigs-hero{ padding: 5vh 4vw 5vh; }
+    .gigs-sub{ margin-top: calc(1.6vh + 0.5cm); line-height: 1.9; }
+    .gigs-cta{ margin-top: calc(2.6vh + 0.5cm); }
+    .gigs-cards{ margin-top: calc(4vh + 1.5cm); gap: 26px; }
+  }
+  @media (max-height: 700px){
+    .gs{ --w: 80px; }
+    .gm{ --w: 88px; }
+    .gl{ --w: 96px; }
+    .gigs-row{ gap: 18px; }
+  }
+
+  /* 图片点击放大（lightbox） */
+  .showcase-card .card-media{ cursor: zoom-in; }
+  .lightbox{
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    background: rgba(20,14,10,.82);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4vh 4vw;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .3s ease, visibility .3s ease;
+    cursor: zoom-out;
+  }
+  .lightbox.open{
+    opacity: 1;
+    visibility: visible;
+  }
+  .lightbox img{
+    max-width: 90vw;
+    max-height: 88vh;
+    border-radius: 16px;
+    box-shadow: 0 30px 80px rgba(0,0,0,.5);
+    object-fit: contain;
+    transform: scale(.9);
+    transition: transform .35s cubic-bezier(.34,1.2,.44,1);
+  }
+  .lightbox.open img{ transform: scale(1); }
+  .lightbox-close{
+    position: absolute;
+    top: 26px;
+    right: 32px;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,.5);
+    background: transparent;
+    color: #fff;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background .25s ease, border-color .25s ease;
+  }
+  .lightbox-close:hover{ background: rgba(255,255,255,.18); border-color: #fff; }
+
+  /* 画室微博图片悬停提示：跟随鼠标、出现在光标右上角的小字 */
+  .img-tip{
+    position: fixed;
+    left: 0; top: 0;
+    z-index: 998;
+    pointer-events: none;
+    background: rgba(51,46,39,.92);
+    color: #f0eee9;
+    font-size: 11px;
+    letter-spacing: .1em;
+    padding: 5px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity .22s ease;
+  }
+  .img-tip.show{ opacity: 1; }
+
+  @media (max-width: 768px){
+    .showcase-screen{ padding: 40px 0 28px; }
+    .showcase-stage{ height: calc(42vw * 12 / 11); }
+    .showcase-card{ width: 42vw; border-radius: 20px; }
+    .card-head h3{ font-size: 2.9vw; height: 3.7vw; }
+    .card-head p{ font-size: 1.55vw; height: 5.3vw; }
+    .showcase-card.prev{ transform: translate(calc(-50% - 28.9vw), -50%) scale(.58); }
+    .showcase-card.next{ transform: translate(calc(-50% + 28.9vw), -50%) scale(.58); }
+    .showcase-arrow{ width: 40px; height: 40px; font-size: 18px; }
+  }
+</style>
+<base target="_blank">
+</head>
+<body>
+
+  <!-- 导航栏 -->
+  <nav>
+    <a class="logo" href="#">Lamanna</a>
+    <ul class="nav-links">
+      <li><a href="#" class="active nav-home">首页</a></li>
+      <li><a href="#" class="nav-about">关于我</a></li>
+      <li><a href="#" class="nav-article">图文</a></li>
+      <li><a href="#" class="nav-video">影像创作</a></li>
+      <li><a href="#other" class="nav-other">其他</a></li>
+    </ul>
+    <a href="#contact" class="nav-right" id="navContact">联系</a>
+  </nav>
+
+  <!-- 第一屏：欢迎页 -->
+  <section class="hero">
+    <!-- 图片在这里被鼠标"种"出来 -->
+    <div class="collage" id="collage"></div>
+
+    <!-- 超大标题 -->
+    <h1 class="giant-title">Welcome Home</h1>
+  </section>
+
+  <!-- 第二屏：向下滑动出现（关于我） -->
+  <section class="manifesto" id="about">
+    <p>一个大脑没有<br>
+    静音键的人，偏爱幻境、荒诞浪漫的<br>
+    叙事。<br>
+    不止产出视觉与新媒体内容，更想去<br>
+    挖掘创作的多元可能。自由、真诚、<br>
+    充满想象。</p>
+  </section>
+
+  <!-- 第三屏：打字机作品 -->
+  <section class="typewriter">
+    <!-- 顶部跑马灯：5张图从左到右无限滚动 -->
+    <div class="marquee">
+      <div class="marquee-track">
+        <img src="images/69.png" alt="cassette">
+        <img src="images/70.png" alt="clapperboard">
+        <img src="images/71.png" alt="polaroid">
+        <img src="images/72.png" alt="stamp">
+        <img src="images/73.png" alt="cd">
+        <img src="images/74.png" alt="shell">
+        <img src="images/75.png" alt="mark-tape">
+        <img src="images/76.png" alt="hourglass">
+        <img src="images/77.png" alt="leaf">
+        <img src="images/78.png" alt="camcorder">
+        <!-- 复制一份，实现无缝循环 -->
+        <img src="images/69.png" alt="cassette">
+        <img src="images/70.png" alt="clapperboard">
+        <img src="images/71.png" alt="polaroid">
+        <img src="images/72.png" alt="stamp">
+        <img src="images/73.png" alt="cd">
+        <img src="images/74.png" alt="shell">
+        <img src="images/75.png" alt="mark-tape">
+        <img src="images/76.png" alt="hourglass">
+        <img src="images/77.png" alt="leaf">
+        <img src="images/78.png" alt="camcorder">
+      </div>
+    </div>
+
+    <div class="typewriter-grid">
+      <div class="typewriter-card" style="background-image:url('images/67.png')">
+        <div class="tw-title">卡片 1｜我的身份</div>
+        <div class="tw-subtitle">MY IDENTITY</div>
+        <div class="tw-body">我叫安娜<br>26 届本科毕业生<br>ENFP<br>射手座</div>
+      </div>
+      <div class="typewriter-card" style="background-image:url('images/68.png')">
+        <div class="tw-title">卡片 2｜我的实践</div>
+        <div class="tw-subtitle">MY PRACTICE</div>
+        <div class="tw-body">公众号编辑与排版<br>多平台新媒体账号运营<br>短视频编导与制作<br>竞品数据分析</div>
+      </div>
+      <div class="typewriter-card" style="background-image:url('images/67.png')">
+        <div class="tw-title">卡片 3｜我的能力</div>
+        <div class="tw-subtitle">MY SKILLS</div>
+        <div class="tw-body">剪映｜视频剪辑制作<br>脚本撰写｜文案写作<br>PPT 制作｜可视化表达</div>
+      </div>
+      <div class="typewriter-card" style="background-image:url('images/68.png')">
+        <div class="tw-title">卡片 4｜我的关注</div>
+        <div class="tw-subtitle">MY FOCUS</div>
+        <div class="tw-body">AI 工具与个人创作<br>宠辱同源</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 第四屏：图文（新媒体图文合集） -->
+  <section class="article-screen" id="article">
+    <!-- 四根螺旋电话线：JS 实时绘制，从打字机底端连到对应单字 -->
+    <svg class="cords-svg" id="cordsSvg" aria-hidden="true"></svg>
+    <div class="article-title">
+      <h2><span class="tw-char">新</span><span class="tw-char">媒</span><span class="tw-char">体</span><span class="tw-char">图</span><span class="tw-char">文</span><span class="tw-char">合</span><span class="tw-char">集</span></h2>
+      <div class="subtitle">公众号｜微博｜小红书</div>
+      <div class="desc">多平台图文创作练习，记录活动宣传与叙事表达。</div>
+    </div>
+    <div class="phones-row">
+      <div class="phone"><div class="screen preview-screen" style="background-image:url('images/preview1.jpg')"></div></div>
+      <div class="phone"><div class="screen preview-screen" style="background-image:url('images/preview2.jpg')"></div></div>
+      <div class="phone"><div class="screen preview-screen" style="background-image:url('images/preview3.jpg'); background-position: center top;"></div></div>
+    </div>
+  </section>
+
+  <!-- 第五屏：新媒体图文作品展示（轮播卡片） -->
+  <section class="showcase-screen" id="showcase">
+    <div class="showcase-header">
+      <h2 class="main-title">新媒体图文作品展示</h2>
+      <div class="sub-desc">校园账号・画室宣传・小红书图文</div>
+    </div>
+    <div class="showcase-carousel">
+      <button class="showcase-arrow prev" id="scPrev" aria-label="上一张">‹</button>
+      <div class="showcase-stage" id="showcaseStage">
+        <div class="showcase-card">
+          <div class="card-head"><h3>画室微博</h3><p>汇总美院校考报考干货，解析考试科目，为美术生提供报考参考，吸引艺考群体</p></div>
+          <div class="card-media" data-tip="点击放大图片"><img src="images/preview4.png" alt="色彩干货" draggable="false"></div>
+        </div>
+        <div class="showcase-card">
+          <div class="card-head"><h3>画室微博</h3><p>分享画室干货，引流目标群体评论、私信</p></div>
+          <div class="card-media" data-tip="点击放大图片"><img src="images/preview5.jpg" alt="国美校考" draggable="false"></div>
+        </div>
+        <div class="showcase-card">
+          <div class="card-head"><h3>画室微博</h3><p>借助趣味创意画作，展现轻松画室氛围，吸引年轻学生</p></div>
+          <div class="card-media" data-tip="点击放大图片"><img src="images/preview6.png" alt="趣味油画" draggable="false"></div>
+        </div>
+        <div class="showcase-card">
+          <div class="card-head"><h3>画室数据</h3><p>后台阅读量数据展示</p></div>
+          <div class="card-media"><img src="images/preview7.jpg" alt="校考指南" draggable="false"></div>
+        </div>
+        <div class="showcase-card">
+          <div class="card-head"><h3>校园微博</h3><p>校园账号联动公益，宣传绿植领养，号召学生参与环保实践</p></div>
+          <div class="card-media"><img src="images/preview8.png" alt="社团周年" draggable="false"></div>
+        </div>
+        <div class="showcase-card">
+          <div class="card-head"><h3>校园微博</h3><p>关心校内考研事件，拉近账号与学生之间的距离</p></div>
+          <div class="card-media"><img src="images/preview9.png" alt="绿植领养" draggable="false"></div>
+        </div>
+        <div class="showcase-card">
+          <div class="card-head"><h3>校园微博</h3><p>转发温暖纪实故事，传递正向价值观</p></div>
+          <div class="card-media"><img src="images/preview10.png" alt="考研上岸" draggable="false"></div>
+        </div>
+        <div class="showcase-card">
+          <div class="card-head"><h3>校园微博</h3><p>推送社团周年活动预告，用校园演出图集展示校园活力，吸引师生参与</p></div>
+          <div class="card-media"><img src="images/preview11.png" alt="温暖日常" draggable="false"></div>
+        </div>
+      </div>
+      <button class="showcase-arrow next" id="scNext" aria-label="下一张">›</button>
+    </div>
+    <div class="showcase-dots" id="showcaseDots"></div>
+  </section>
+
+  <!-- 第六屏：公众号专项作品集网格 -->
+  <section class="mp-portfolio" id="ending">
+    <div class="mp-top">
+      <div class="mp-left">
+        <h2 class="mp-title">公众号图文内容实践</h2>
+        <div class="mp-filters">
+          <span class="mp-filter-label">Filter</span>
+          <div class="mp-filter-list" id="mpFilters">
+            <button class="mp-filter active" data-filter="all">全部</button>
+            <button class="mp-filter" data-filter="排版">排版</button>
+            <button class="mp-filter" data-filter="编辑">编辑</button>
+            <button class="mp-filter" data-filter="审核">审核</button>
+          </div>
+        </div>
+      </div>
+      <p class="mp-note">覆盖文案编辑、秀米图文排版、内容校对审核，独立完成推文内容落地。</p>
+    </div>
+
+    <div class="mp-grid" id="mpGrid">
+      <!-- data-duties 标注该作品负责板块；mp-preview 内替换为手机预览截图即可 -->
+      <article class="mp-card" data-duties="排版 编辑 审核" data-href="https://mp.weixin.qq.com/s/VTEwhs4I6uU3y5JfzS4eUw">
+        <h3 class="mp-card-name">来一场民俗之旅吧~</h3>
+        <div class="mp-preview">
+          <div class="mp-phones">
+            <div class="mp-phone mp-phone-a"><img src="images/%E7%BD%91%E6%A0%BC1.jpg" alt="莫愁村推文手机预览一"></div>
+            <div class="mp-phone mp-phone-b"><img src="images/%E7%BD%91%E6%A0%BC2.jpg" alt="莫愁村推文手机预览二"></div>
+          </div>
+        </div>
+        <div class="mp-foot">
+          <div class="mp-tags">
+            <span class="mp-tag mp-tag-green">排版</span>
+            <span class="mp-tag mp-tag-blue">编辑</span>
+            <span class="mp-tag mp-tag-green">审核</span>
+          </div>
+          <span class="mp-year">2023年</span>
+        </div>
+      </article>
+
+      <article class="mp-card" data-duties="排版 编辑" data-href="https://mp.weixin.qq.com/s/0XxTVh51wGT2ulmsYaXYXQ">
+        <h3 class="mp-card-name">青芽信箱</h3>
+        <div class="mp-preview">
+          <div class="mp-slides" id="mpSlides2">
+            <img class="mp-on" src="images/%E7%BD%91%E6%A0%BC3.png" alt="青芽信箱推文预览一">
+            <img src="images/%E7%BD%91%E6%A0%BC4.png" alt="青芽信箱推文预览二">
+            <img src="images/%E7%BD%91%E6%A0%BC5.png" alt="青芽信箱推文预览三">
+            <img src="images/%E7%BD%91%E6%A0%BC6.png" alt="青芽信箱推文预览四">
+            <img src="images/%E7%BD%91%E6%A0%BC7.png" alt="青芽信箱推文预览五">
+          </div>
+        </div>
+        <div class="mp-foot">
+          <div class="mp-tags">
+            <span class="mp-tag mp-tag-green">排版</span>
+            <span class="mp-tag mp-tag-blue">编辑</span>
+          </div>
+          <span class="mp-year">2023年</span>
+        </div>
+      </article>
+
+      <article class="mp-card" data-duties="排版" data-href="https://mp.weixin.qq.com/s/CrkS_ZBkbk-Udidglc1C9A">
+        <h3 class="mp-card-name">青年之声·毕业季</h3>
+        <div class="mp-preview">
+          <!-- 复古电视机外壳：薄荷绿+黄屏框+粉控板+黑旋钮 -->
+          <div class="mp-tv">
+            <div class="mp-tv-body">
+              <div class="mp-tv-frame">
+                <img src="images/%E7%BD%91%E6%A0%BC8.jpg" alt="青年之声·毕业季推文预览">
+              </div>
+              <div class="mp-tv-panel">
+                <span class="mp-tv-knob"></span>
+                <span class="mp-tv-knob"></span>
+                <span class="mp-tv-knob"></span>
+              </div>
+            </div>
+            <div class="mp-tv-legs">
+              <span></span><span></span>
+            </div>
+          </div>
+        </div>
+        <div class="mp-foot">
+          <div class="mp-tags"><span class="mp-tag mp-tag-green">排版</span></div>
+          <span class="mp-year">2023年</span>
+        </div>
+      </article>
+
+      <article class="mp-card" data-duties="排版 编辑" data-href="https://mp.weixin.qq.com/s/bLf-EqI6x1x7LruTtwG0Vg">
+        <h3 class="mp-card-name">2023绿植领养</h3>
+        <div class="mp-preview mp-preview-hand">
+          <div class="mp-device">
+            <div class="mp-screen"><img src="images/%E7%BD%91%E6%A0%BC9.jpg" alt="2023绿植领养推文预览"></div>
+          </div>
+          <svg class="mp-grass" viewBox="0 0 120 70" aria-hidden="true">
+            <g fill="#7FA452">
+              <path d="M24 70 C15 47 17 24 27 6 C31 27 35 50 24 70Z"/>
+              <path d="M8 70 C1 55 2 38 12 27 C17 47 20 60 8 70Z" opacity=".75"/>
+              <path d="M40 70 C49 52 49 34 40 21 C35 42 32 59 40 70Z" opacity=".75"/>
+            </g>
+            <g fill="#9CBC6B">
+              <path d="M80 70 C73 53 75 36 83 22 C87 38 90 55 80 70Z"/>
+              <path d="M97 70 C90 57 91 44 99 35 C103 50 105 62 97 70Z" opacity=".8"/>
+              <path d="M66 70 C73 55 73 41 66 31 C61 46 59 59 66 70Z" opacity=".8"/>
+            </g>
+          </svg>
+        </div>
+        <div class="mp-foot">
+          <div class="mp-tags">
+            <span class="mp-tag mp-tag-green">排版</span>
+            <span class="mp-tag mp-tag-green">审核</span>
+          </div>
+          <span class="mp-year">2023年</span>
+        </div>
+      </article>
+
+      <article class="mp-card" data-duties="审核" data-href="https://mp.weixin.qq.com/s/lZ9w2YBslK6Vzq_PikJMXg">
+        <h3 class="mp-card-name">致敬女性力量</h3>
+        <div class="mp-preview"><img src="images/%E7%BD%91%E6%A0%BC10.png" alt="致敬女性力量推文预览"></div>
+        <div class="mp-foot">
+          <div class="mp-tags">
+            <span class="mp-tag mp-tag-green">审核</span>
+          </div>
+          <span class="mp-year">2023年</span>
+        </div>
+      </article>
+
+      <article class="mp-card" data-duties="审核" data-href="https://mp.weixin.qq.com/s/MbFsRTAaShiJlVzl2iirwg">
+        <h3 class="mp-card-name">2023《年味》主题摄影</h3>
+        <div class="mp-preview"><img src="images/%E7%BD%91%E6%A0%BC12.jpg" alt="2023《年味》主题摄影推文预览"></div>
+        <div class="mp-foot">
+          <div class="mp-tags">
+            <span class="mp-tag mp-tag-green">审核</span>
+          </div>
+          <span class="mp-year">2023年</span>
+        </div>
+      </article>
+
+      <!-- 新增 9 张卡片：卡7 放网格11（黑底插画），其余 8 张待放网格13~20 -->
+      <article class="mp-card" data-duties="审核" data-href="https://mp.weixin.qq.com/s/ZAYdJ6FSrVop00rH878Mow">
+        <h3 class="mp-card-name">我想把这二十年的故事讲给你听</h3>
+        <div class="mp-preview">
+          <div class="mp-orbit-wrap" id="mpOrbit7">
+            <img src="images/%E7%BD%91%E6%A0%BC11.png" alt="我想把这二十年的故事讲给你听 推文预览">
+          </div>
+        </div>
+        <div class="mp-foot">
+          <div class="mp-tags">
+            <span class="mp-tag mp-tag-green">审核</span>
+          </div>
+          <span class="mp-year">2023年</span>
+        </div>
+      </article>
+
+      <article class="mp-card" data-duties="排版 编辑" data-href="https://mp.weixin.qq.com/s/IfHPxDHOfPTdzGyXF3inmg">
+        <h3 class="mp-card-name">断更23天，小宣在干什么？</h3>
+        <div class="mp-preview">
+          <!-- Canvas 自动检测出的 8 个小人会被 JS 注入到 .mp-xuan-wrap 里旋转 -->
+          <div class="mp-xuan-wrap" id="mpXuanWrap8">
+            <img class="mp-xuan-bg" src="images/%E7%BD%91%E6%A0%BC13.png" alt="断更23天小宣推文预览">
+          </div>
+        </div>
+        <div class="mp-foot">
+          <div class="mp-tags">
+            <span class="mp-tag mp-tag-green">排版</span>
+            <span class="mp-tag mp-tag-blue">编辑</span>
+          </div>
+          <span class="mp-year">2023年</span>
+        </div>
+      </article>
+
+      <article class="mp-card" data-duties="排版" data-href="https://mp.weixin.qq.com/s/hMGaV24_Qp_LV6pGeAxGLQ">
+        <h3 class="mp-card-name">让你最有感触的照片是哪一张？</h3>
+        <div class="mp-preview"><img class="mp-img-noborder" src="images/%E7%BD%91%E6%A0%BC20.png" alt="让你最有感触的照片是哪一张推文预览"></div>
+        <div class="mp-foot">
+          <div class="mp-tags">
+            <span class="mp-tag mp-tag-green">排版</span>
+          </div>
+          <span class="mp-year">2022年</span>
+        </div>
+      </article>
+
+      <article class="mp-card" data-duties="排版 编辑" data-href="https://mp.weixin.qq.com/s/2TmIGIemKzv-WpotYmzopA">
+        <h3 class="mp-card-name">学习二十大·青春在行动</h3>
+        <div class="mp-preview"><img src="images/%E7%BD%91%E6%A0%BC14.png" alt="学习二十大青春在行动推文预览"></div>
+        <div class="mp-foot">
+          <div class="mp-tags">
+            <span class="mp-tag mp-tag-green">排版</span>
+            <span class="mp-tag mp-tag-blue">编辑</span>
+          </div>
+          <span class="mp-year">2022年</span>
+        </div>
+      </article>
+
+      <article class="mp-card" data-duties="排版 编辑" data-href="https://mp.weixin.qq.com/s/LlOreAbriMoAmOfEG6O4MA">
+        <h3 class="mp-card-name">武汉东湖学院社会实践活动</h3>
+        <div class="mp-preview"><img class="mp-img-noborder" src="images/%E7%BD%91%E6%A0%BC15.png" alt="武汉东湖学院社会实践活动推文预览"></div>
+        <div class="mp-foot">
+          <div class="mp-tags">
+            <span class="mp-tag mp-tag-green">排版</span>
+          </div>
+          <span class="mp-year">2022年</span>
+        </div>
+      </article>
+
+      <article class="mp-card" data-duties="排版" data-href="https://mp.weixin.qq.com/s/oNBc5h1Swe5FbynDwy7DNg">
+        <h3 class="mp-card-name">杀死夏天的刺客</h3>
+        <div class="mp-preview"><img class="mp-img-noborder" style="transform: scale(.85)" src="images/%E7%BD%91%E6%A0%BC16.jpg" alt="杀死夏天的刺客推文预览"></div>
+        <div class="mp-foot">
+          <div class="mp-tags">
+            <span class="mp-tag mp-tag-green">排版</span>
+            <span class="mp-tag mp-tag-blue">编辑</span>
+          </div>
+          <span class="mp-year">2022年</span>
+        </div>
+      </article>
+
+      <article class="mp-card" data-duties="排版" data-href="https://mp.weixin.qq.com/s/C4B5MBcQD0VAUemiijE9ng">
+        <h3 class="mp-card-name">落笔如云烟</h3>
+        <div class="mp-preview"><img class="mp-img-noborder" src="images/%E7%BD%91%E6%A0%BC17.jpg" alt="落笔如云烟推文预览"></div>
+        <div class="mp-foot">
+          <div class="mp-tags">
+            <span class="mp-tag mp-tag-green">排版</span>
+            <span class="mp-tag mp-tag-blue">编辑</span>
+          </div>
+          <span class="mp-year">2022年</span>
+        </div>
+      </article>
+
+      <article class="mp-card" data-duties="排版 编辑" data-href="https://mp.weixin.qq.com/s/6Pe9CBDgry6thamNFQSerw">
+        <h3 class="mp-card-name">山水一程，三生有"杏"</h3>
+        <div class="mp-preview"><img class="mp-img-noborder" src="images/%E7%BD%91%E6%A0%BC18.jpg" alt="山水一程三生有杏推文预览"></div>
+        <div class="mp-foot">
+          <div class="mp-tags">
+            <span class="mp-tag mp-tag-green">排版</span>
+            <span class="mp-tag mp-tag-blue">编辑</span>
+          </div>
+          <span class="mp-year">2021年</span>
+        </div>
+      </article>
+
+      <article class="mp-card" data-duties="排版 编辑" data-href="https://mp.weixin.qq.com/s/OnapUoDOblubZtyGkcURiA">
+        <h3 class="mp-card-name">干部培训大会</h3>
+        <div class="mp-preview"><img class="mp-img-noborder" src="images/%E7%BD%91%E6%A0%BC19.jpg" alt="干部培训大会推文预览"></div>
+        <div class="mp-foot">
+          <div class="mp-tags">
+            <span class="mp-tag mp-tag-green">排版</span>
+            <span class="mp-tag mp-tag-blue">编辑</span>
+          </div>
+          <span class="mp-year">2021年</span>
+        </div>
+      </article>
+
+      <article class="mp-card" data-duties="排版" data-href="https://mp.weixin.qq.com/s/AwdKNEbaYeT5_oyfKpyc2Q">
+        <h3 class="mp-card-name">前方预警：武汉东湖学院运动会高能来袭</h3>
+        <div class="mp-preview"><img class="mp-img-noborder" src="images/%E7%BD%91%E6%A0%BC21.jpg" alt="前方预警武汉东湖学院运动会高能来袭推文预览"></div>
+        <div class="mp-foot">
+          <div class="mp-tags">
+            <span class="mp-tag mp-tag-green">排版</span>
+          </div>
+          <span class="mp-year">2021年</span>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- 页尾屏：深色 Hero 区块（点亮我的运营图鉴） -->
+  <div class="page-footer-space">
+  </div>
+
+  <!-- FAQ 空白屏：参考 Stivio Image to video FAQ 版式（左标题 + 右手风琴问答） -->
+  <section id="faq-screen" aria-label="常见问题" style="background:#f0eee9;">
+    <style>
+      .faq-wrap{
+        max-width:min(1280px,92vw);
+        margin:0 auto;
+        padding:0 0 clamp(.6cm,1vh,1.1cm);
+        display:grid;
+        grid-template-columns: 1fr 1.35fr;
+        gap:clamp(3cm,5vw,6cm);
+        align-items:start;
+      }
+      .faq-copy{ padding-top:.6cm; }
+      .faq-copy h2{
+        font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+        font-weight:800;
+        font-size:clamp(28px,3.2vw,52px);
+        line-height:1.2;
+        letter-spacing:.01em;
+        color:#332e27;
+        margin:0 0 .8cm;
+      }
+      .faq-copy p{
+        font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+        font-weight:400;
+        font-size:clamp(13px,1vw,15px);
+        line-height:1.7;
+        color:#6f695e;
+        margin:0;
+        max-width:340px;
+      }
+      .faq-list{
+        border-top:1px solid #d8d1c4;
+      }
+      .faq-item{
+        border-bottom:1px solid #d8d1c4;
+      }
+      .faq-q{
+        width:100%;
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:16px;
+        padding:clamp(14px,1.4vw,20px) 0;
+        background:none;
+        border:none;
+        cursor:pointer;
+        font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+        font-size:clamp(14px,1.05vw,17px);
+        color:#332e27;
+        text-align:left;
+        transition:color .2s ease;
+      }
+      .faq-q:hover{ color:#c0392b; }
+      .faq-plus{
+        flex-shrink:0;
+        width:22px;
+        height:22px;
+        position:relative;
+        color:#332e27;
+        transition:transform .35s ease, color .2s ease;
+      }
+      .faq-plus::before,
+      .faq-plus::after{
+        content:"";
+        position:absolute;
+        left:50%; top:50%;
+        background:currentColor;
+        transform:translate(-50%,-50%);
+      }
+      .faq-plus::before{ width:14px; height:1.5px; }
+      .faq-plus::after{ width:1.5px; height:14px; transition:transform .35s ease; }
+      .faq-item.open .faq-plus::after{ transform:translate(-50%,-50%) rotate(90deg); }
+      .faq-item.open .faq-plus{ transform:rotate(180deg); color:#c0392b; }
+      .faq-a{
+        max-height:0;
+        overflow:hidden;
+        transition:max-height .45s ease, padding .3s ease;
+        font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+        font-size:clamp(13px,1vw,15px);
+        line-height:1.7;
+        color:#6f695e;
+        padding-right:28px;
+      }
+      .faq-item.open .faq-a{
+        max-height:240px;
+        padding-bottom:clamp(12px,1.2vw,18px);
+      }
+      .faq-a p{ margin:0; }
+      @media (max-width:980px){
+        .faq-wrap{
+          grid-template-columns:1fr;
+          gap:1.4cm;
+          padding:0 0 .55cm;
+        }
+        .faq-copy{ padding-top:0; }
+      }
+      @media (prefers-reduced-motion:reduce){
+        .faq-plus, .faq-plus::after{ transition:none; }
+        .faq-a{ transition:none; }
+      }
+    </style>
+    <div class="faq-wrap">
+      <div class="faq-copy">
+        <h2>运营那些事，都在这</h2>
+        <p>收集 12 项图文运营技能，记录从策划到复盘的成长链路</p>
+        <p>四个核心方向：</p>
+        <p>如何找准定位？如何产出内容？<br>如何分发维护？如何复盘迭代？</p>
+      </div>
+      <div class="faq-list" id="faqList">
+        <div class="faq-item">
+          <button class="faq-q" type="button">完成账号整体定位规划<span class="faq-plus" aria-hidden="true"></span></button>
+          <div class="faq-a"><p>结合账号赛道属性与运营目标，明确核心受众人群、用户画像与内容输出方向。确立账号整体人设、风格基调、内容特色与差异化优势，搭建长期完整体系，规避内容杂乱、方向跑偏问题，保证账号输出稳定、垂直、有辨识度。</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" type="button">竞品与用户调研挖掘选题<span class="faq-plus" aria-hidden="true"></span></button>
+          <div class="faq-a"><p>拆解同赛道爆款内容逻辑、选题方向、用户偏好与变现路径。精准挖掘受众真实痛点、核心诉求与阅读需求，筛选高热度、高适配、高转化的内容选题，持续搭建、更新、沉淀专属选题素材库，为长期内容产出提供充足储备。</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" type="button">多平台文案创作思路<span class="faq-plus" aria-hidden="true"></span></button>
+          <div class="faq-a"><p>具备成熟的文字编辑能力，根据小红书、公众号、微博等不同平台的流量逻辑与用户阅读习惯，撰写适配性强的标题、开篇、正文与结尾。熟练搭建完整文章叙事框架，做到逻辑清晰、节奏舒适、重点突出，能够结合热点、情绪、干货、种草等创作思路输出高质量原创文案，提升内容吸引力与留存率。</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" type="button">统一账号图文风格<span class="faq-plus" aria-hidden="true"></span></button>
+          <div class="faq-a"><p>具备基础图片处理与视觉设计能力，根据账号整体调性筛选高清、适配、统一风格的配图素材。熟练完成图片裁切、调色、排版、贴纸文字搭配等基础制作，统一账号封面风格、图文色调、视觉搭配，保证整体内容视觉统一，提升账号整体质感与用户感观。</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" type="button">优化阅读排版体验<span class="faq-plus" aria-hidden="true"></span></button>
+          <div class="faq-a"><p>合理规划页面阅读动线，通过分段、空行、重点高亮、图文穿插、间距调节，优化整体阅读节奏。规避密集文字、排版杂乱、重点模糊等问题，让内容层次清晰、观感舒适、阅读流畅，大幅降低用户阅读疲劳，提升完读率与停留时长。</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" type="button">平台规则规避<span class="faq-plus" aria-hidden="true"></span></button>
+          <div class="faq-a"><p>熟悉公众号、小红书、微博等主流新媒体平台的内容推送机制、流量规则和审核标准。清楚各平台的禁忌内容、限流误区与敏感内容，熟练规避各类违规风险，保障每一篇内容都能合规正常推送，有效防止账号出现限流、屏蔽、违规处罚等问题，保障账号稳定运营。</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" type="button">跨平台内容高效复用<span class="faq-plus" aria-hidden="true"></span></button>
+          <div class="faq-a"><p>具备成熟的一文多发、跨平台内容复用能力，可基于同一套核心素材与内容主题，根据不同平台的用户调性、内容生态、流量偏好进行二次改写、改编与版式优化。实现内容高效复用，大幅提升内容传播广度与覆盖面。</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" type="button">内容发布与账号日常运维<span class="faq-plus" aria-hidden="true"></span></button>
+          <div class="faq-a"><p>负责内容全流程发布运维，发布前逐字校对文案、图片、标点、话题、排版细节，杜绝错漏问题；上线阶段精准搭配热门话题、精准标签与推荐位置，提升自然流量推送；发布后实时维护评论区、回复私信互动，主动拉近用户距离，提升账号活跃度、粉丝粘性与账号整体流量表现。</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" type="button">图文流量数据监测解读<span class="faq-plus" aria-hidden="true"></span></button>
+          <div class="faq-a"><p>能看懂并监测图文全维度核心数据，包含曝光、浏览、阅读量、点赞、收藏、评论、转发、关注、完读率等关键指标。实时追踪单篇内容传播走势，判断流量上涨、持平、下滑原因，精准识别爆款潜质内容与低效内容，为内容优化提供真实数据支撑。</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" type="button">从用户反馈捕捉内容痛点<span class="faq-plus" aria-hidden="true"></span></button>
+          <div class="faq-a"><p>持续收集评论区留言、用户私信、粉丝提问、互动反馈等一手用户信息，精准捕捉用户真实需求、内容偏好、疑问与痛点。结合用户主观反馈与后台客观数据，综合判断内容质量、实用性、吸引力与传播效果，精准定位内容优势与存在问题。</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" type="button">复盘总结<span class="faq-plus" aria-hidden="true"></span></button>
+          <div class="faq-a"><p>定期开展内容数据复盘，横向对比往期同类型内容、纵向对标赛道爆款内容，汇总每篇图文的传播效果、流量来源、用户互动表现。系统总结内容选题、文案风格、视觉呈现、发布时段的优缺点，精准归纳爆款规律与踩坑问题，为后续创作提供明确优化方向。</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" type="button">运营经验做成标准化<span class="faq-plus" aria-hidden="true"></span></button>
+          <div class="faq-a"><p>基于每一次复盘结果梳理归纳运营经验，持续更新选题库、文案模板库、视觉规范标准、排版模板与发布流程。将零散的运营经验转化为可复制、可复用、可迭代的标准化方法论，承接过往优势、规避过往问题，实现账号内容质量、流量数据、运营效率的持续优化与稳步提升。</p></div>
+        </div>
+      </div>
+    </div>
+    <script>
+    (function(){
+      var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var list = document.getElementById('faqList');
+      if(!list) return;
+      // hover 展开：鼠标进入某条 → 关闭其他 → 展开当前
+      list.addEventListener('mouseover', function(e){
+        var item = e.target.closest('.faq-item');
+        if(!item) return;
+        if(item.classList.contains('open')) return;
+        list.querySelectorAll('.faq-item').forEach(function(it){ it.classList.remove('open'); });
+        item.classList.add('open');
+      });
+      // 鼠标离开整个列表 → 关闭所有
+      list.addEventListener('mouseleave', function(){
+        list.querySelectorAll('.faq-item').forEach(function(it){ it.classList.remove('open'); });
+      });
+      // 触屏设备保留点击兜底
+      list.addEventListener('click', function(e){
+        var q = e.target.closest('.faq-q');
+        if(!q) return;
+        var item = q.parentElement;
+        list.querySelectorAll('.faq-item').forEach(function(it){ it.classList.remove('open'); });
+        item.classList.add('open');
+      });
+      if(reduce){
+        var first = list.querySelector('.faq-item');
+        if(first) first.classList.add('open');
+      }
+    })();
+    </script>
+  </section>
+
+  <!-- 图文模板（参考 SHOP 版式：左侧衬线红字信息栏 + 右侧错落照片拼贴） -->
+  <style>
+    .tp-section{
+      background:#f0eee9;
+      padding: 2cm 0 1cm;
+    }
+    .tp-wrap{
+      display:flex;
+      align-items:stretch;
+      gap:3vw;
+      width:min(1500px,94vw);
+      margin:0 auto;
+    }
+    .tp-left{
+      flex:0 0 30%;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      font-family:"SimSun","Songti SC",serif;
+      color:#332e27;
+    }
+    .tp-title{
+      font-size:clamp(26px,2.4vw,38px);
+      font-weight:700;
+      letter-spacing:.14em;
+      line-height:1.4;
+      margin:0 0 1.2cm;
+    }
+    .tp-label{
+      font-size:12px;
+      letter-spacing:.2em;
+      text-decoration:underline;
+      text-underline-offset:4px;
+      margin-bottom:14px;
+    }
+    .tp-block{ margin-bottom:1.1cm; }
+    .tp-strong{
+      font-size:clamp(17px,1.35vw,22px);
+      line-height:1.55;
+      margin:0;
+    }
+    .tp-small{ font-size:13px; letter-spacing:.06em; margin:6px 0 0; opacity:.85; }
+    .tp-oval{
+      display:inline-block;
+      border:1.5px solid #332e27;
+      border-radius:999px;
+      padding:12px 26px;
+      font-size:14px;
+      letter-spacing:.18em;
+      color:#332e27;
+      text-decoration:none;
+      margin:0 0 1.1cm;
+      transition:color .25s ease, border-color .25s ease;
+    }
+    .tp-oval:hover{ color:#c0392b; border-color:#c0392b; }
+    .tp-lines p{ font-size:13.5px; line-height:2.1; letter-spacing:.05em; margin:0; }
+    .tp-duo{
+      display:flex;
+      gap:2.6cm;
+      margin-top:.55cm;
+    }
+    .tp-duo .tp-strong{ font-size:clamp(15px,1.15vw,19px); }
+    .tp-right{
+      flex:1;
+      overflow:hidden;
+      height:clamp(340px,46vw,640px);
+      position:relative;
+      -webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);
+      mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);
+    }
+    .tp-track{
+      display:flex;
+      gap:0;
+      height:100%;
+      width:max-content;
+      animation:tp-conveyor 22s linear infinite;
+    }
+    .tp-track:hover{ animation-play-state:paused; }
+    .tp-ph{
+      margin:0;
+      overflow:hidden;
+      flex-shrink:0;
+      width:clamp(180px,20vw,300px);
+      height:100%;
+      background:#e5dfd1;
+    }
+    .tp-ph img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+    }
+    @keyframes tp-conveyor{
+      from{ transform:translateX(0); }
+      to{ transform:translateX(-50%); }
+    }
+    @media (prefers-reduced-motion:reduce){
+      .tp-track{ animation:none; }
+    }
+    @media (max-width:980px){
+      .tp-section{ padding:1.5cm 0; }
+      .tp-wrap{ flex-direction:column; gap:1.4cm; }
+      .tp-left{ flex:none; }
+      .tp-title{ margin-bottom:1.2cm; }
+      .tp-right{
+        height:46vw;
+        flex-wrap:nowrap;
+      }
+      .tp-ph{ width:42vw; }
+    }
+  </style>
+  <section class="tp-section" aria-label="图文模板">
+    <div class="tp-wrap">
+      <div class="tp-left">
+        <h2 class="tp-title">小红书账号竞品分析</h2>
+        <div class="tp-block">
+          <div class="tp-label">作 品</div>
+          <p class="tp-strong">美妆博主对比</p>
+          <p class="tp-small">阿里杯北：勇仔leo/聂小倩她老板/陈圆圆超可爱/在版纳的化妆师兔子</p>
+        </div>
+        <a class="tp-oval" href="anything.pdf" target="_blank" rel="noopener">查看文档</a>
+        <div class="tp-lines">
+          <p>竞品分析 · 内容策略 · 账号调研</p>
+          <p>从账号定位到内容表现的完整分析</p>
+          <p>对比人设、选题、封面与商业方向</p>
+        </div>
+        <div class="tp-block" style="margin:.55cm 0 0">
+          <div class="tp-label">账号详情</div>
+          <p class="tp-strong">粉丝数/人设定位/报价</p>
+        </div>
+        <div class="tp-duo">
+          <div>
+            <div class="tp-label">选题内容</div>
+            <p class="tp-strong">话题笔记类型/笔记数量/更新频率/主要发布时间</p>
+          </div>
+          <div>
+            <div class="tp-label">用户分析</div>
+            <p class="tp-strong">活跃度/粉丝变化/性别/年龄/地区/城市</p>
+          </div>
+        </div>
+      </div>
+      <div class="tp-right">
+        <div class="tp-track">
+          <figure class="tp-ph"><img src="images/数据1.png" loading="lazy" alt="竞品分析数据 1"></figure>
+          <figure class="tp-ph"><img src="images/数据2.png" loading="lazy" alt="竞品分析数据 2"></figure>
+          <figure class="tp-ph"><img src="images/数据3.png" loading="lazy" alt="竞品分析数据 3"></figure>
+          <figure class="tp-ph"><img src="images/数据4.png" loading="lazy" alt="竞品分析数据 4"></figure>
+          <figure class="tp-ph"><img src="images/数据1.png" loading="lazy" alt="竞品分析数据 1"></figure>
+          <figure class="tp-ph"><img src="images/数据2.png" loading="lazy" alt="竞品分析数据 2"></figure>
+          <figure class="tp-ph"><img src="images/数据3.png" loading="lazy" alt="竞品分析数据 3"></figure>
+          <figure class="tp-ph"><img src="images/数据4.png" loading="lazy" alt="竞品分析数据 4"></figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 第八屏：影像创作（悬挂相框作品墙） -->
+  <section class="pex-screen" id="pex" aria-label="影像创作">
+    <main class="pex-hero">
+      <div class="pex-copy" aria-label="介绍">
+        <img class="pex-grid-img" src="images/%E7%BD%91%E6%A0%BC22.png" alt="影像创作作品网格">
+        <h2 class="pex-title">影像创作</h2>
+        <p class="pex-lead">展示成品、分镜信息、故事制作与创作想法。</p>
+        <p class="pex-special">课程短片作业</p>
+        <button type="button" class="pex-btn" id="pexScrollBtn">继续向下滑动</button>
+      </div>
+
+      <div class="pex-wall" aria-label="作品照片墙">
+        <div class="pex-hang">
+          <svg class="pex-string" viewBox="0 0 190 96"><line x1="95" y1="5" x2="12" y2="90"/><line x1="95" y1="5" x2="178" y2="90"/><circle class="pex-pin" cx="95" cy="8" r="6"/></svg>
+          <figure class="pex-frame pex-f1"><img src="images/%E7%BD%91%E6%A0%BC23.png" alt="影像创作作品：《和平里的老树新芽》" /><span class="pex-frame-label">《和平里的老树新芽》</span></figure>
+        </div>
+        <div class="pex-hang">
+          <svg class="pex-string" viewBox="0 0 190 96"><line x1="95" y1="5" x2="12" y2="90"/><line x1="95" y1="5" x2="178" y2="90"/><circle class="pex-pin" cx="95" cy="8" r="6"/></svg>
+          <figure class="pex-frame pex-f2"><img src="images/%E7%BD%91%E6%A0%BC24.png" alt="影像创作作品：《黑布》" /><span class="pex-frame-label">《黑布》</span></figure>
+        </div>
+        <div class="pex-hang">
+          <svg class="pex-string" viewBox="0 0 190 96"><line x1="95" y1="5" x2="12" y2="90"/><line x1="95" y1="5" x2="178" y2="90"/><circle class="pex-pin" cx="95" cy="8" r="6"/></svg>
+          <figure class="pex-frame pex-f3"><img src="images/%E9%80%832.png" alt="影像创作作品：《逃》" /><span class="pex-frame-label">《逃》</span></figure>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <!-- 过渡屏：影像创作 → 分镜翻牌卡 -->
+  <section class="divider-screen" id="storyboard-divider" aria-label="故事要怎样呈现">
+    <div class="dv-overlay">
+      <p class="divider-text">故事要怎样呈现呢？</p>
+      <div class="dv-sub">
+        <p class="dv-sub-kicker"><i class="dv-dot"></i>分镜铺展，细览画面</p>
+        <p class="dv-sub-desc">以分镜搭建叙事骨架，依靠画面承载情绪，探寻短片故事的内核思想</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card-screen" id="card" aria-label="作品卡片">
+    <div class="card-stage">
+      <div class="card-panel card-deepest" id="cardDeepest">
+        <div class="card3-inner">
+          <h2 class="card3-title">逃 · 部分分镜头脚本</h2>
+          <div class="card3-tablewrap">
+            <table class="card3-table">
+              <thead>
+                <tr>
+                  <th class="col-no">镜号</th>
+                  <th class="col-move">镜头运动</th>
+                  <th class="col-shot">景别/机位</th>
+                  <th>画面内容</th>
+                  <th class="col-time">时长</th>
+                  <th class="col-audio">音效/台词</th>
+                  <th>备注</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="col-no">11</td>
+                  <td>固定</td>
+                  <td>近景（正前方）</td>
+                  <td>女生心生厌烦，戴上耳机，直接趴在桌面上</td>
+                  <td>25-33s</td>
+                  <td>背景音乐持续</td>
+                  <td>从被迫忙碌转为短暂逃避</td>
+                </tr>
+                <tr>
+                  <td class="col-no">12</td>
+                  <td>下移滑镜</td>
+                  <td>特写</td>
+                  <td>女生头埋胳膊内，镜头从耳机位置缓慢向下滑动，落至手机播放界面</td>
+                  <td>33-37s</td>
+                  <td>背景音乐持续</td>
+                  <td>镜头滑动作为转场铺垫</td>
+                </tr>
+                <tr>
+                  <td class="col-no">13</td>
+                  <td>缩放运镜</td>
+                  <td>特写</td>
+                  <td>手机屏幕先放大聚焦，再还原大小，完成画面转场过渡</td>
+                  <td>37-39s</td>
+                  <td>背景音乐持续</td>
+                  <td>屏幕缩放衔接现实与梦境场景</td>
+                </tr>
+                <tr>
+                  <td class="col-no">14</td>
+                  <td>拉镜带出</td>
+                  <td>特写转近景</td>
+                  <td>镜头从手机缓慢拉起带出人物，女生从趴着状态缓缓坐起</td>
+                  <td>39-42s</td>
+                  <td>背景音乐持续</td>
+                  <td>梦境松弛场景正式开启</td>
+                </tr>
+                <tr>
+                  <td class="col-no">15</td>
+                  <td>固定</td>
+                  <td>中全景</td>
+                  <td>女生面向开阔自然环境奔跑，姿态舒展</td>
+                  <td>42-44s</td>
+                  <td>背景音乐持续</td>
+                  <td>释放前期压抑情绪</td>
+                </tr>
+                <tr>
+                  <td class="col-no">16</td>
+                  <td>固定</td>
+                  <td>中景</td>
+                  <td>路人牵着小狗从画面路过，画面生活化、柔和</td>
+                  <td>44-46s</td>
+                  <td>背景音乐持续</td>
+                  <td>烘托治愈松弛氛围</td>
+                </tr>
+                <tr>
+                  <td class="col-no">17</td>
+                  <td>固定</td>
+                  <td>远景</td>
+                  <td>远景拍摄河畔，路人骑车沿河道前行</td>
+                  <td>46-48s</td>
+                  <td>背景音乐持续</td>
+                  <td>交代开阔自然场景</td>
+                </tr>
+                <tr>
+                  <td class="col-no">18</td>
+                  <td>固定</td>
+                  <td>中景</td>
+                  <td>白色小狗在草坪悠闲行走</td>
+                  <td>48-49s</td>
+                  <td>背景音乐持续</td>
+                  <td>增加画面温柔生活气息</td>
+                </tr>
+                <tr>
+                  <td class="col-no">19</td>
+                  <td>固定</td>
+                  <td>中全景（右后方机位）</td>
+                  <td>右后方机位拍摄，女生坐在长椅悠然书写，状态松弛恬淡</td>
+                  <td>49-51s</td>
+                  <td>背景音乐持续</td>
+                  <td>与咖啡厅急躁状态形成强烈心境反差</td>
+                </tr>
+                <tr>
+                  <td class="col-no">20</td>
+                  <td>固定</td>
+                  <td>中景（正前方机位）</td>
+                  <td>女生写完内容，面对自然风光放松伸懒腰</td>
+                  <td>51-55s</td>
+                  <td>背景音乐持续</td>
+                  <td>肢体舒展，释放心理压力</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="card-panel card-deep" id="cardDeep">
+        <div class="card4-inner">
+          <h2 class="card4-headline">
+            <span class="hl1">情绪主题实验短片</span>
+            <span class="hl2">逃！</span>
+          </h2>
+          <div class="card4-photo">
+            <img class="ph-main" src="images/%E7%BD%91%E6%A0%BC25.png" alt="《逃》模板主图占位" />
+            <img class="ph-city" src="images/%E9%80%833.png" alt="《逃》剧照一" />
+            <img class="ph-stamp" src="images/%E9%80%831.png" alt="《逃》剧照二" />
+          </div>
+          <div class="card4-bio">
+            <p>本片为小组合作创作的情绪实验短片，时长1分14秒，聚焦当代学生与青年群体的高压生活状态。影片结合现实场景与梦境场景进行创作：现实部分拍摄深夜咖啡厅场景，展现人物熬夜赶工、完成作业的疲惫内卷状态；人物佩戴耳机短暂小憩后，画面切入梦境，切换至开阔舒适的公园场景，实现情绪与视觉的短暂放松。</p>
+            <p class="bio-faint">影片全程搭配背景音乐，穿插词条式解说台词注解心境，短片末尾设置一句收尾台词收束全篇。作品通过“现实压抑疲惫”与“梦境松弛治愈”的强烈画面反差，表现当代年轻人身处压力之中，只能借片刻休憩逃离现实、舒缓情绪的核心主题。依托场景对比、剪辑节奏、配乐、词条解说与收尾台词共同烘托主旨，锻炼了情绪主题构思、场景调度、氛围感剪辑与视听情绪塑造能力。</p>
+          </div>
+        </div>
+      </div>
+      <div class="card-panel card-bottom">
+        <div class="card3-inner">
+          <h2 class="card3-title">黑布 · 部分分镜头脚本</h2>
+          <div class="card3-tablewrap">
+            <table class="card3-table">
+              <thead>
+                <tr>
+                  <th class="col-no">镜号</th>
+                  <th class="col-move">镜头运动</th>
+                  <th class="col-shot">景别</th>
+                  <th>画面内容</th>
+                  <th class="col-time">时长</th>
+                  <th class="col-audio">音效 / 台词</th>
+                  <th>备注</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="col-no">1</td>
+                  <td>固定</td>
+                  <td>近景</td>
+                  <td>足球场草坪，黑布从屏幕中间落下，落在草地上，背景是操场与宿舍楼</td>
+                  <td>0-1s</td>
+                  <td>氛围背景音乐，全程持续播放，无配音</td>
+                  <td>黑布落地，核心视觉符号登场</td>
+                </tr>
+                <tr>
+                  <td class="col-no">2</td>
+                  <td>缓慢右移</td>
+                  <td>近景</td>
+                  <td>镜头缓慢向右平移，白色花瓣散落在黑布周边，人物双腿走入画面，准备拾取黑布</td>
+                  <td>1-3s</td>
+                  <td>背景音乐持续不变</td>
+                  <td>镜头右移，只拍摄地面腿部，营造氛围感</td>
+                </tr>
+                <tr>
+                  <td class="col-no">3</td>
+                  <td>推镜放大</td>
+                  <td>特写</td>
+                  <td>镜头对准黑布，画面以黑布为中心放大，黑布上浮现白色粗体字幕「黑布」</td>
+                  <td>3-5s</td>
+                  <td>背景音乐持续不变</td>
+                  <td>主题字幕出现，短片点题</td>
+                </tr>
+                <tr>
+                  <td class="col-no">4</td>
+                  <td>固定</td>
+                  <td>特写</td>
+                  <td>人物手持黑布，横向穿过画面</td>
+                  <td>5-8s</td>
+                  <td>背景音乐持续不变</td>
+                  <td>固定机位，人物横向走过画面，镜头保持不动，过渡镜头，衔接女主出场</td>
+                </tr>
+                <tr>
+                  <td class="col-no">5</td>
+                  <td>固定</td>
+                  <td>中景</td>
+                  <td>女主走入画面，神情满怀期待</td>
+                  <td>8-10s</td>
+                  <td>背景音乐持续不变</td>
+                  <td>主角登场，铺垫对结果的期待情绪</td>
+                </tr>
+                <tr>
+                  <td class="col-no">6</td>
+                  <td>从下平行上移 → 硬切 → 固定</td>
+                  <td>特写→俯视→全景</td>
+                  <td>女生俯身拾取地上花瓣；镜头先从下平行向上平移，平移结束后直接切俯视镜头，展现女生与花瓣的位置关系；再转全景，交代人物、草坪与周边环境</td>
+                  <td>10-20s</td>
+                  <td>背景音乐持续不变</td>
+                  <td>镜头层次：平行上移 → 切俯视 → 转全景，体现女生爱惜成果的特质</td>
+                </tr>
+                <tr>
+                  <td class="col-no">7</td>
+                  <td>固定</td>
+                  <td>中景</td>
+                  <td>第二位女生入画，无视残缺花朵，随意踩踏地上花瓣</td>
+                  <td>20-24s</td>
+                  <td>背景音乐持续不变</td>
+                  <td>人物行为形成对比，象征漠视、不珍惜成果</td>
+                </tr>
+                <tr>
+                  <td class="col-no">8</td>
+                  <td>固定</td>
+                  <td>中景</td>
+                  <td>两名女生将各自的花（一朵鲜艳饱满、一朵腐败枯萎）交给中间人</td>
+                  <td>26-30s</td>
+                  <td>背景音乐持续不变</td>
+                  <td>上交代表个人努力的“成果”</td>
+                </tr>
+                <tr>
+                  <td class="col-no">9</td>
+                  <td>固定</td>
+                  <td>特写</td>
+                  <td>幕后之人借黑布遮挡，暗中调换两份花</td>
+                  <td>35-40s</td>
+                  <td>背景音乐持续不变</td>
+                  <td>本片核心剧情，隐喻成绩冒名顶替，暗中窃取他人成果</td>
+                </tr>
+                <tr>
+                  <td class="col-no">10</td>
+                  <td>固定</td>
+                  <td>特写</td>
+                  <td>善良女生拿到被摧残的花，面部特写，呈现错愕、失落的神情</td>
+                  <td>40-44s</td>
+                  <td>背景音乐持续不变</td>
+                  <td>付出努力却被夺走机会，凸显不公的悲剧感</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="card-panel card-back" id="cardMiddle">
+        <div class="card2-inner">
+          <div class="card2-head">
+            <div>
+              <p class="card2-kicker">原创隐喻概念短片</p>
+              <h2 class="card2-title">黑布</h2>
+            </div>
+          </div>
+          <p class="card2-intro c2-w1">本片为课程小组合作制作的原创概念短片，时长59秒，以社会隐喻为核心主题，改编自真实热点新闻——学生考试成绩被他人冒名顶替的社会事件。影片以“黑布”为核心视觉符号，隐喻现实中的遮蔽、不公与信息壁垒。剧情讲述一名女生满怀期待参与考试，却在无形的遮蔽之下被调换成绩、错失升学机会，最终遗憾落榜。片尾穿插真实新闻案例，将虚构影像叙事与现实社会议题结合，提升作品深度与现实意义。</p>
+          <p class="card2-intro c2-w2">短片整体氛围偏压抑写实，全程搭配氛围配乐，<br>辅以少量人物配音补充情绪表达。整体节奏紧<br>凑、无冗余台词，依靠景别切换、虚实对焦、<br>镜头递进与剪辑节奏完成隐喻叙事，用短时长<br>影像承载社会思考，锻炼了主题策划、镜头语<br>言设计、议题影像化表达与后期剪辑配乐能力。</p>
+          <div class="card2-shots">
+            <div class="card2-gapcell" aria-hidden="true"></div>
+            <figure class="card2-shot">
+              <div class="card2-imgwrap"><img src="images/%E9%BB%91%E5%B8%832.png" alt="《黑布》剧照二" /></div>
+            </figure>
+            <figure class="card2-shot">
+              <div class="card2-imgwrap"><img src="images/%E9%BB%91%E5%B8%833.png" alt="《黑布》剧照三" /></div>
+            </figure>
+            <figure class="card2-shot">
+              <div class="card2-imgwrap"><img src="images/%E9%BB%91%E5%B8%831.png" alt="《黑布》剧照一" /></div>
+            </figure>
+          </div>
+        </div>
+      </div>
+      <div class="card-panel card-front" id="cardFront">
+        <div class="card1-inner">
+          <div class="card1-text">
+            <p class="card1-kicker">纪实影像作业</p>
+            <h2 class="card1-title">和平里的老树新芽</h2>
+            <div class="card1-bottom">
+              <p class="card1-desc">本片为课程<br>双人纪实影像作业<br>取景于武汉平和打包厂工业旧址</p>
+              <p class="card1-desc">作品以“旧建筑新生”为创作主题，实地拍摄老厂房建筑肌理、光影细节与空间活化后的人文景象。我独立完成外景取景、素材筛选、画面剪辑、旁白文案撰写、人声配音及配乐适配工作。以舒缓流畅的视听节奏，呈现工业旧址的岁月质感与新生氛围，诠释“老树新芽”的城市更新内涵。完整完成纪实短片全流程创作，扎实锻炼了实景拍摄、画面构图、音画同步与纪实叙事能力。</p>
+            </div>
+          </div>
+          <div class="card1-media">
+            <img src="images/%E5%92%8C%E5%B9%B31.png" alt="《平和里的老树新芽》纪实影像剧照一" />
+            <img src="images/%E5%92%8C%E5%B9%B32.png" alt="《平和里的老树新芽》纪实影像剧照二" />
+            <img src="images/%E5%92%8C%E5%B9%B33.png" alt="《平和里的老树新芽》纪实影像剧照三" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       新增板块：See more work（底部全屏深色作品集入口，参考 brandappart.com）
+       自包含：下方 <style>（smw- 前缀）+ 本 section 结构 + 其后 <script> 动画，
+       不修改页面其他代码；GSAP/ScrollTrigger 已在页面顶部 vendor 中引入，
+       滚动通过现有 Lenis 的 lenis.on('scroll', ScrollTrigger.update) 自动同步。
+       ============================================================ -->
+  <style>
+    /* 与上一屏之间的 5cm 奶油色间隙，保证圆环（含旋转/放大过程）不与上方图片重合 */
+    .smw-gap{
+      height: 2cm;
+      background: #f0eee9;
+    }
+    /* 板块尾部空间：供圆环组合继续上移、完全离开视口（奶油色无缝衔接）。
+       文字放在这里，顶部与上方旋转图片所在板块保持 5cm 距离 */
+    .smw-tail{
+      min-height: 100vh;
+      background: #f0eee9;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    /* 尾部大句：参考参考站英文大标题的字号量级（大号超粗、接近黑的暖深色）。
+       margin-top:5cm = 与上方旋转圆环区域的固定距离 */
+    .smw-note{
+      margin: 3.5cm 0 0;
+      max-width: min(1320px, 86vw);
+      text-align: center;
+      font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-weight: 800;
+      font-size: clamp(30px, 3.6vw, 64px);
+      line-height: 1.35;
+      letter-spacing: .04em;
+      color: #332e27;
+      will-change: opacity, transform;
+      margin-bottom: -1cm;
+    }
+    .smw-note-sub{ color: #6f695e; }
+    /* 四词堆叠板块：参考模板的纵向大词排版（居中、大号、紧凑行距）；配色沿用本站奶油底+深墨字；
+       位于 9 图网格之后、页面最底部，与网格间距 4cm，页尾留 5cm */
+    .smw-words{
+      margin: 4cm 0 5cm;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      --wsize: clamp(44px, 6vw, 86px);
+    }
+    .smw-word{
+      font-family: "SimSun", "Songti SC", serif;
+      font-weight: 400;
+      font-size: var(--wsize);
+      line-height: 1.3;
+      letter-spacing: .1em;
+      color: #332e27;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+    /* 悬停时文字中央弹出的灰黑实心小圆 */
+    .smw-word::before{
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: .62em;
+      height: .62em;
+      margin: -.31em 0 0 -.31em;
+      border-radius: 50%;
+      background: #4a4234;
+      z-index: -1;
+      transform: scale(0);
+      transition: transform .42s cubic-bezier(.34,1.56,.64,1);
+    }
+    .smw-word:hover::before{ transform: scale(1); }
+    /* 悬停时左右两半文字随图片一起向两侧分开，露出中央小圆 */
+    .smw-word .c-l, .smw-word .c-r{
+      display: inline-block;
+      transition: transform .42s cubic-bezier(.22,.61,.36,1);
+      position: relative;
+      z-index: 1;
+    }
+    .smw-word:hover .c-l{ transform: translateX(-.55em); }
+    .smw-word:hover .c-r{ transform: translateX(.55em); }
+    .smw-words-lead{
+      font-family: "SimSun", "Songti SC", serif;
+      font-weight: 400;
+      font-size: clamp(18px, 2.2vw, 28px);
+      letter-spacing: .14em;
+      color: #6f695e;
+      position: relative;
+      top: -1cm;
+      margin-bottom: 1.2cm;
+    }
+    /* “拍照”一行：左右各四张照片，统一大小（3:4），高度与文字一致 */
+    .smw-photo-row{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .smw-photo-row img{
+      width: calc(var(--wsize) * .75);
+      height: var(--wsize);
+      object-fit: cover;
+      flex: 0 0 auto;
+      transition: transform .35s cubic-bezier(.22,.61,.36,1);
+    }
+    /* 左右图片组：悬停文字时分别向两侧平移让出中央（z-index 低于文字，放大也不会压住字） */
+    .smw-imgs{
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: relative;
+      z-index: 0;
+      transition: transform .42s cubic-bezier(.22,.61,.36,1);
+    }
+    .smw-photo-row:has(.smw-word:hover) .smw-imgs-l{ transform: translateX(-18px); }
+    .smw-photo-row:has(.smw-word:hover) .smw-imgs-r{ transform: translateX(18px); }
+    /* 鼠标放在中间文字上时，左右两侧图片轻微放大 */
+    .smw-photo-row:has(.smw-word:hover) img{ transform: scale(1.18); }
+    @media (prefers-reduced-motion: reduce){
+      .smw-word::before, .smw-word .c-l, .smw-word .c-r, .smw-imgs, .smw-photo-row img{ transition: none; }
+      .smw-photo-row:has(.smw-word:hover) img,
+      .smw-photo-row:has(.smw-word:hover) .smw-imgs-l,
+      .smw-photo-row:has(.smw-word:hover) .smw-imgs-r,
+      .smw-word:hover .c-l,
+      .smw-word:hover .c-r{ transform: none; }
+      .smw-word:hover::before{ transform: scale(0); }
+    }
+    /* 尾部 PPT 作品网格：白卡衬底 + 柔和暖灰阴影 + 悬浮上浮，与全站卡片语言一致 */
+    .smw-ppt-grid{
+      width: min(1320px, 86vw);
+      margin: 4cm 0 0;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 30px;
+    }
+    .smw-ppt-grid figure{
+      margin: 0;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 10px 30px rgba(74,66,52,.10);
+      transition: transform .45s cubic-bezier(.22,.61,.36,1), box-shadow .45s cubic-bezier(.22,.61,.36,1);
+    }
+    .smw-ppt-grid figure:hover{
+      transform: translateY(-6px);
+      box-shadow: 0 18px 40px rgba(74,66,52,.16);
+    }
+    .smw-ppt-grid img{
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    @media (max-width: 980px){
+      /* 窄屏字号/行宽同步收小，避免句子顶出屏幕 */
+      .smw-note{ font-size: clamp(24px, 6.4vw, 36px); max-width: 88vw; }
+      .smw-words-lead{ margin-bottom: .8cm; }
+      .smw-ppt-grid{ grid-template-columns: 1fr; gap: 16px; margin: 2.5cm 0 0; }
+      .smw-words{ margin: 2.5cm 0 3cm; --wsize: clamp(34px, 9vw, 56px); }
+      .smw-photo-row{ gap: 6px; }
+      .smw-imgs{ gap: 6px; }
+      .smw-photo-row:has(.smw-word:hover) .smw-imgs-l{ transform: translateX(-10px); }
+      .smw-photo-row:has(.smw-word:hover) .smw-imgs-r{ transform: translateX(10px); }
+      .smw-word:hover .c-l{ transform: translateX(-.4em); }
+      .smw-word:hover .c-r{ transform: translateX(.4em); }
+      .smw-photo-row img{ width: calc(var(--wsize) * .6); }
+    }
+    /* 全屏舞台：与网页一致的奶油底色，居中。不 pin：滚动时板块随页面正常上移离开视口。
+       --ring 由 JS 在滚动时实时写入（全程只在终值附近轻微变化，保证整圈在文字外侧）；
+       --spin 是整圈统一旋转角 */
+    .smw-portfolio{
+      --ring: clamp(220px, 40vmin, 420px);
+      --spin: 0deg;
+      position: relative;
+      min-height: 100vh;
+      background: #f0eee9;
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      isolation: isolate;                 /* 内部 z-index 层级只在板块内生效 */
+    }
+    /* 居中大标题：暖深色、超粗；z-index:2 在全部图片(z-index:1)之上。
+       字号取 vw 与 vmin 的较小值：超宽矮窗下标题不会宽到顶住圆环左右两点 */
+    .smw-title{
+      position: relative; z-index: 2;
+      margin: 0;
+      max-width: 88vw;
+      text-align: center;
+      font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-weight: 800;
+      font-size: min(clamp(46px, 7vw, 128px), 10.2vmin);
+      line-height: 1;
+      letter-spacing: .12em;              /* 中文克制字距 */
+      text-indent: .12em;                 /* 抵消末字字距，保证视觉居中 */
+      color: #443d33;
+      pointer-events: none;               /* 纯视觉，不挡滚动/点击 */
+      will-change: opacity, transform;
+    }
+    /* 漂浮元素外框：统一锚定舞台中心；滚动时图片整体缩放在这一层 */
+    .smw-item{
+      position: absolute;
+      left: 50%; top: 50%;
+      margin: 0;
+      width: var(--w, 150px);
+      z-index: 1;                         /* 全部置于标题下层，任何时刻都不压住文字 */
+      will-change: transform;
+      pointer-events: none;
+    }
+    /* 圆环定位层：居中自身 →（角度+整圈旋转角）→ 沿 Y 轴推出半径 → 反向转回（加静止倾角）。
+       --spin 是 6 个元素共享的整圈旋转角：下滑时 0→-360（逆时针：上方元素右→左、
+       右侧元素下→上），上滑时 scrub 自动反向（左→右、上→下）。
+       反向转回保证图片始终正向朝上，只是位置绕圆心有序轮换，不会各自乱飞 */
+    .smw-orbit{
+      display: block;
+      width: 100%;
+      transform: translate(-50%, -50%)
+                 rotate(calc(var(--a, 0deg) + var(--spin, 0deg)))
+                 translateY(calc(-1 * var(--ring)))
+                 rotate(calc(-1 * (var(--a, 0deg) + var(--spin, 0deg)) + var(--tilt, 0deg)));
+      will-change: transform;
+    }
+    /* 内层图片：统一正方形容器 + 居中裁切，6 个元素等尺寸 */
+    .smw-orbit img{
+      display: block;
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      border-radius: 0;
+      box-shadow: none;
+      will-change: transform;
+    }
+    @media (max-width: 980px){
+      /* 窄屏：半径/图片/标题同步收小，标题同样受 vmin 约束，保证不压字、不出屏 */
+      .smw-portfolio{ --ring: clamp(140px, 38vmin, 300px); }
+      .smw-item{ width: calc(var(--w, 150px) * .66); }
+      .smw-title{ font-size: min(clamp(36px, 9.5vw, 84px), 12vmin); }
+    }
+  </style>
+
+  <section class="other-screen" id="other" aria-label="更多作品">
+    <!-- 与上一屏之间的 5cm 间隙 -->
+    <div class="smw-gap"></div>
+
+    <div class="smw-portfolio">
+      <h2 class="smw-title">更多记录</h2>
+
+      <!-- 10 个漂浮元素（图片 71~78、69、70），沿以标题为圆心的正圆等角（每隔 36°）分布。
+           --a    该元素在圆环上的角度（0deg=正上方，顺时针）
+           --w    图片宽度（十者完全一致）
+           --tilt 静止时的倾斜角度（度）
+           滚动行为（JS 统一驱动，非各元素独立，不 pin 页面）：
+           下滑 → 整圈逆时针旋转一周（位置有序轮换）+ 圆环只轻微放大（全程在文字外侧），
+                  同时页面正常向下滚动，本组合随页面自然上移、逐渐离开视口；
+           上滑 → scrub 自动反向（顺时针、轻微缩回）。 -->
+      <figure class="smw-item"
+              style="--a:-90deg; --w:clamp(118px,12vw,168px); --tilt:-10deg">
+        <span class="smw-orbit"><img src="images/更多记录1.png.jpg" alt="更多记录 1" loading="lazy"></span>
+      </figure>
+
+      <figure class="smw-item"
+              style="--a:-54deg; --w:clamp(118px,12vw,168px); --tilt:8deg">
+        <span class="smw-orbit"><img src="images/更多记录2.png.jpg" loading="lazy" alt="更多记录 2"></span>
+      </figure>
+
+      <figure class="smw-item"
+              style="--a:-18deg; --w:clamp(118px,12vw,168px); --tilt:-6deg">
+        <span class="smw-orbit"><img src="images/更多记录3.png.jpg" loading="lazy" alt="更多记录 3"></span>
+      </figure>
+
+      <figure class="smw-item"
+              style="--a:18deg; --w:clamp(118px,12vw,168px); --tilt:7deg">
+        <span class="smw-orbit"><img src="images/更多记录4.png" loading="lazy" alt="更多记录 4"></span>
+      </figure>
+
+      <figure class="smw-item"
+              style="--a:54deg; --w:clamp(118px,12vw,168px); --tilt:6deg">
+        <span class="smw-orbit"><img src="images/更多记录5.png" loading="lazy" alt="更多记录 5"></span>
+      </figure>
+
+      <figure class="smw-item"
+              style="--a:90deg; --w:clamp(118px,12vw,168px); --tilt:-8deg">
+        <span class="smw-orbit"><img src="images/更多记录6.png" loading="lazy" alt="更多记录 6"></span>
+      </figure>
+
+      <figure class="smw-item"
+              style="--a:126deg; --w:clamp(90px,9vw,128px); --tilt:9deg">
+        <span class="smw-orbit"><img src="images/更多记录7.png" loading="lazy" alt="更多记录 7"></span>
+      </figure>
+
+      <figure class="smw-item"
+              style="--a:162deg; --w:clamp(118px,12vw,168px); --tilt:-7deg">
+        <span class="smw-orbit"><img src="images/更多记录8.png" loading="lazy" alt="更多记录 8"></span>
+      </figure>
+
+      <figure class="smw-item"
+              style="--a:198deg; --w:clamp(118px,12vw,168px); --tilt:5deg">
+        <span class="smw-orbit"><img src="images/更多记录9.png" loading="lazy" alt="更多记录 9"></span>
+      </figure>
+
+      <figure class="smw-item"
+              style="--a:234deg; --w:clamp(118px,12vw,168px); --tilt:-9deg">
+        <span class="smw-orbit"><img src="images/更多记录10.png.jpg" loading="lazy" alt="更多记录 10"></span>
+      </figure>
+    </div>
+
+    <!-- 尾部空间：供圆环组合继续上移、完全离开视口；文字与上方旋转区域相距 5cm -->
+    <div class="smw-tail" aria-hidden="false">
+      <p class="smw-note">跳出影像成片的创作<br><span class="smw-note-sub">记录专业之外的多元探索</span></p>
+      <div class="smw-ppt-grid">
+        <figure><img src="images/ppt1.png" width="1098" height="614" loading="lazy" alt="图文排版作品 1"></figure>
+        <figure><img src="images/ppt2.png" width="1098" height="614" loading="lazy" alt="图文排版作品 2"></figure>
+        <figure><img src="images/ppt3.png" width="1098" height="614" loading="lazy" alt="图文排版作品 3"></figure>
+        <figure><img src="images/ppt4.png" width="1098" height="614" loading="lazy" alt="图文排版作品 4"></figure>
+        <figure><img src="images/ppt5.png" width="1098" height="614" loading="lazy" alt="图文排版作品 5"></figure>
+        <figure><img src="images/ppt6.png" width="1098" height="614" loading="lazy" alt="图文排版作品 6"></figure>
+        <figure><img src="images/ppt7.png" width="1098" height="614" loading="lazy" alt="图文排版作品 7"></figure>
+        <figure><img src="images/ppt8.png" width="1098" height="614" loading="lazy" alt="图文排版作品 8"></figure>
+        <figure><img src="images/ppt9.png" width="1098" height="614" loading="lazy" alt="图文排版作品 9"></figure>
+      </div>
+      <div class="smw-words">
+        <span class="smw-words-lead">除了ppt制作还有...</span>
+        <div class="smw-photo-row">
+          <span class="smw-imgs smw-imgs-l">
+            <img src="images/拍照1.png.jpg" loading="lazy" alt="拍照 1">
+            <img src="images/拍照2.png.jpg" loading="lazy" alt="拍照 2">
+            <img src="images/拍照3.png.jpg" loading="lazy" alt="拍照 3">
+            <img src="images/拍照4.png.jpg" loading="lazy" alt="拍照 4">
+          </span>
+          <span class="smw-word"><span class="c-l">拍</span><span class="c-r">照</span></span>
+          <span class="smw-imgs smw-imgs-r">
+            <img src="images/拍照5.png.jpg" loading="lazy" alt="拍照 5">
+            <img src="images/拍照6.png.jpg" loading="lazy" alt="拍照 6">
+            <img src="images/拍照7.png.jpg" loading="lazy" alt="拍照 7">
+            <img src="images/拍照8.png.jpg" loading="lazy" alt="拍照 8">
+          </span>
+        </div>
+        <div class="smw-photo-row">
+          <span class="smw-imgs smw-imgs-l">
+            <img src="images/音乐1.png.jpg" loading="lazy" alt="音乐 1">
+            <img src="images/音乐2.png.jpg" loading="lazy" alt="音乐 2">
+            <img src="images/音乐3.png.jpg" loading="lazy" alt="音乐 3">
+          </span>
+          <span class="smw-word"><span class="c-l">音</span><span class="c-r">乐</span></span>
+          <span class="smw-imgs smw-imgs-r">
+            <img src="images/音乐4.png.jpg" loading="lazy" alt="音乐 4">
+            <img src="images/音乐5.png.jpg" loading="lazy" alt="音乐 5">
+            <img src="images/音乐6.png.jpg" loading="lazy" alt="音乐 6">
+          </span>
+        </div>
+        <div class="smw-photo-row">
+          <span class="smw-imgs smw-imgs-l">
+            <img src="images/手工1.png.jpg" loading="lazy" alt="手工 1">
+            <img src="images/手工2.png.jpg" loading="lazy" alt="手工 2">
+            <img src="images/手工3.png.jpg" loading="lazy" alt="手工 3">
+          </span>
+          <span class="smw-word"><span class="c-l">手</span><span class="c-r">工</span></span>
+          <span class="smw-imgs smw-imgs-r">
+            <img src="images/手工4.png.jpg" loading="lazy" alt="手工 4">
+            <img src="images/手工5.png.jpg" loading="lazy" alt="手工 5">
+            <img src="images/手工6.png.jpg" loading="lazy" alt="手工 6">
+          </span>
+        </div>
+        <div class="smw-photo-row">
+          <span class="smw-imgs smw-imgs-l">
+            <img src="images/拉片1.png.jpg" loading="lazy" alt="拉片 1">
+            <img src="images/拉片2.png.jpg" loading="lazy" alt="拉片 2">
+            <img src="images/拉片3.png.jpg" loading="lazy" alt="拉片 3">
+          </span>
+          <span class="smw-word"><span class="c-l">拉片</span><span class="c-r">/解说</span></span>
+          <span class="smw-imgs smw-imgs-r">
+            <img src="images/拉片4.png.jpg" loading="lazy" alt="拉片 4">
+            <img src="images/拉片5.png.jpg" loading="lazy" alt="拉片 5">
+            <img src="images/拉片6.png.jpg" loading="lazy" alt="拉片 6">
+          </span>
+        </div>
+        <div class="smw-photo-row">
+          <span class="smw-imgs smw-imgs-l">
+            <img src="images/小说1.png.jpg" loading="lazy" alt="阅读 1">
+            <img src="images/小说2.png.jpg" loading="lazy" alt="阅读 2">
+            <img src="images/小说3.png.jpg" loading="lazy" alt="阅读 3">
+          </span>
+          <span class="smw-word"><span class="c-l">阅</span><span class="c-r">读</span></span>
+          <span class="smw-imgs smw-imgs-r">
+            <img src="images/小说4.png.jpg" loading="lazy" alt="阅读 4">
+            <img src="images/小说5.png.jpg" loading="lazy" alt="阅读 5" style="object-fit:contain;">
+            <img src="images/小说6.png" loading="lazy" alt="阅读 6">
+          </span>
+        </div>
+        <div class="smw-photo-row">
+          <span class="smw-imgs smw-imgs-l">
+            <img src="images/神秘1.png.jpg" loading="lazy" alt="神秘 1">
+            <img src="images/神秘2.png.jpg" loading="lazy" alt="神秘 2">
+            <img src="images/神秘3.png.jpg" loading="lazy" alt="神秘 3">
+          </span>
+          <span class="smw-word"><span class="c-l">神</span><span class="c-r">秘</span></span>
+          <span class="smw-imgs smw-imgs-r">
+            <img src="images/神秘4.png.jpg" loading="lazy" alt="神秘 4">
+            <img src="images/神秘5.png.jpg" loading="lazy" alt="神秘 5">
+            <img src="images/神秘6.png" loading="lazy" alt="神秘 6">
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 联系我（页尾）：参考英文大字排版（大标题 / 小标签栏目 / 订阅框 / 版权行 / 超大字标），奶油底+深墨字，与全站统一 ========== -->
+  <style>
+    .ct-section{
+      background:#f0eee9;
+      color:#332e27;
+      padding: 0 2.2vw 0;
+      overflow:hidden;
+      margin-top: -3cm;
+    }
+    .ct-title{
+      font-family:"PingFang SC","Microsoft YaHei",sans-serif;
+      font-weight:800;
+      font-size:clamp(30px,3.8vw,60px);
+      line-height:1.22;
+      letter-spacing:.03em;
+      color:#332e27;
+      margin:0;
+    }
+    .ct-grid{
+      display:grid;
+      grid-template-columns: 1.5fr 1fr .8fr;
+      gap:32px;
+      margin-top:3.2cm;
+    }
+    .ct-label{
+      font-size:10px;
+      letter-spacing:.22em;
+      color:#8b8272;
+      text-transform:uppercase;
+      margin-bottom:18px;
+    }
+    .ct-form{
+      display:flex;
+      align-items:center;
+      width:min(320px,100%);
+      background:#e7e1d3;
+      border-radius:999px;
+      padding:5px 5px 5px 18px;
+      text-decoration:none;
+      cursor:pointer;
+      transition:background .25s ease;
+    }
+    .ct-form:hover{ background:#ddd6c6; }
+    .ct-placeholder{
+      flex:1;
+      font-size:12px;
+      letter-spacing:.12em;
+      color:#9a917f;
+      font-family:inherit;
+    }
+    .ct-btn{
+      border:0;
+      background:#332e27;
+      color:#f0eee9;
+      font-size:11px;
+      letter-spacing:.14em;
+      padding:9px 16px;
+      border-radius:999px;
+      font-family:inherit;
+    }
+    .ct-col a:not(.ct-form){
+      display:block;
+      font-size:14px;
+      font-weight:600;
+      letter-spacing:.04em;
+      color:#332e27;
+      text-decoration:none;
+      line-height:1.9;
+    }
+    .ct-col a:not(.ct-form):hover{ text-decoration:underline; text-underline-offset:3px; }
+    .ct-col-soon{ font-size:14px; font-weight:600; letter-spacing:.04em; color:#6f695e; line-height:1.9; }
+    .ct-hint{ font-size:13px; color:#6f695e; letter-spacing:.06em; }
+    .ct-copy{
+      margin-top:2.6cm;
+      font-size:10px;
+      letter-spacing:.18em;
+      color:#6f695e;
+    }
+    .ct-mark{
+      font-family:"PingFang SC","Microsoft YaHei",sans-serif;
+      font-weight:800;
+      font-size:19vw;
+      line-height:1;
+      letter-spacing:-.02em;
+      color:#332e27;
+      white-space:nowrap;
+      margin:1.2cm 0 -.08em;
+      margin-left:-.5vw;
+      user-select:none;
+    }
+    @media (max-width:980px){
+      .ct-section{ padding:0 6vw 0; }
+      .ct-grid{ grid-template-columns:1fr; gap:34px; margin-top:2cm; }
+      .ct-copy{ margin-top:1.6cm; }
+    }
+  </style>
+  <section id="contact" class="ct-section">
+    <h2 class="ct-title">看完这些作品，<br>欢迎随时联系我。</h2>
+    <div class="ct-grid">
+      <div class="ct-col">
+        <div class="ct-label">如果你想</div>
+        <a class="ct-form" href="https://v.wjx.cn/vm/Qj3YhAm.aspx#" target="_blank" rel="noopener">
+          <span class="ct-placeholder">留下你的联系方式</span>
+          <span class="ct-btn">输入</span>
+        </a>
+      </div>
+      <div class="ct-col">
+        <div class="ct-label">Contact</div>
+        <a href="mailto:a3340259722@qq.com">a3340259722@qq.com</a>
+        <a href="resume.pdf" download="杜安娜个人求职简历.pdf">下载纸质简历</a>
+      </div>
+      <div class="ct-col">
+        <div class="ct-label">Social</div>
+        <div class="ct-col-soon">暂不开放</div>
+      </div>
+    </div>
+    <div class="ct-copy">© LAMANNA, My Web Design, 2026</div>
+    <div class="ct-mark" aria-hidden="true">LAMANNA</div>
+  </section>
+  <script>
+  document.addEventListener('DOMContentLoaded', function(){
+    var form = document.getElementById('ctForm');
+    if(form){
+      form.addEventListener('submit', function(e){
+        e.preventDefault();
+        form.style.display = 'none';
+        var hint = document.getElementById('ctHint');
+        if(hint) hint.hidden = false;
+      });
+    }
+    if(window.gsap && window.ScrollTrigger && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+      gsap.registerPlugin(ScrollTrigger);
+      gsap.from('.ct-title, .ct-grid, .ct-copy', {
+        opacity:0, y:24, duration:.9, ease:'power2.out', stagger:.12,
+        scrollTrigger:{ trigger:'#contact', start:'top 82%', once:true }
+      });
+    }
+  });
+  </script>
+
+  <!-- 「更多记录」板块动画（GSAP + ScrollTrigger，与 Lenis 平滑滚动同步）
+       一条 scrub 时间轴统一驱动 10 张图（不 pin，页面始终正常滚动）：
+       下滑 = 整圈逆时针旋转一周（位置有序轮换）+ 圆环轻微放大（全程在文字外侧），
+              板块随页面自然上移并离开视口；上滑 = scrub 自动反向。
+       各元素始终等距 36°，不做独立位移，避免乱飞。 -->
+  <script>
+  document.addEventListener('DOMContentLoaded', function(){
+    // 页面没加载 GSAP 时直接退出，不报错、不影响其他功能
+    if(!window.gsap || !window.ScrollTrigger) return;
+    gsap.registerPlugin(ScrollTrigger);
+
+    var section = document.querySelector('#other .smw-portfolio');
+    var title   = section && section.querySelector('.smw-title');
+    var items   = section ? section.querySelectorAll('.smw-item') : [];
+    var imgs    = section ? section.querySelectorAll('.smw-item img') : [];
+    var note    = document.querySelector('#other .smw-note');
+    if(!section || !title || !items.length) return;
+
+    /* ===== 可调参数（想改手感改这里） ===== */
+    var START_RATIO_DESKTOP = 0.68; // 桌面起始环半径 / 终值：起始更小，放大到终值约 32%（起始与文字仅极轻微相碰）
+    var START_RATIO_MOBILE  = 0.72; // 小屏起始环半径 / 终值（小屏标题占比宽，半径要收得更多）
+    var START_SCALE_DESKTOP = 0.72; // 桌面起始每张图缩放
+    var START_SCALE_MOBILE  = 0.60; // 小屏起始图片更小一圈，避免左右两张贴着标题
+    var SPIN_DEG    = -360;    // 下滑一周的整圈旋转角（负=逆时针：右→左、下→上；想反向改成 +360）
+
+    function startRatio(){
+      return window.matchMedia('(max-width: 980px)').matches ? START_RATIO_MOBILE : START_RATIO_DESKTOP;
+    }
+    function startScale(){
+      return window.matchMedia('(max-width: 980px)').matches ? START_SCALE_MOBILE : START_SCALE_DESKTOP;
+    }
+
+    // 与 CSS clamp(220px,40vmin,420px) / 小屏 clamp(140px,38vmin,300px) 保持一致的终值半径
+    function ringMax(){
+      var mobile = window.matchMedia('(max-width: 980px)').matches;
+      var v = Math.min(window.innerWidth, window.innerHeight) * (mobile ? 0.38 : 0.40);
+      var max = mobile ? 300 : 420;
+      var min = mobile ? 140 : 220;
+      return Math.round(Math.max(min, Math.min(max, v)));
+    }
+
+    // 时间轴驱动的中间状态对象（GSAP tween 它，onUpdate 时写入 CSS 变量 / 图片样式）
+    var proxy = { r: ringMax() * startRatio(), spin: 0, s: startScale() };
+
+    function apply(){
+      section.style.setProperty('--ring', proxy.r + 'px');
+      section.style.setProperty('--spin', proxy.spin + 'deg');
+      for(var i = 0; i < imgs.length; i++){
+        imgs[i].style.transform = 'scale(' + proxy.s + ')';
+      }
+    }
+
+    // 减少动态效果：直接呈现终态（整圈在文字外侧），无滚动动画
+    if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+      gsap.set(title, { opacity: 1 });
+      if(note) gsap.set(note, { opacity: 1 });
+      proxy.r = ringMax(); proxy.s = 1;
+      apply();
+      return;
+    }
+
+    // 板块进入视口前的起始状态
+    apply();
+    gsap.set(title, { opacity: 0, y: 20 });
+
+    // 尾部大句：滚到接近视口时一次性淡入（不绑 scrub，避免和圆环动画互相干扰）
+    if(note){
+      gsap.set(note, { opacity: 0, y: 24 });
+      gsap.to(note, {
+        opacity: 1, y: 0,
+        duration: .9,
+        ease: 'power2.out',
+        scrollTrigger: { trigger: note, start: 'top 88%', once: true }
+      });
+    }
+
+    // 尾部 PPT 网格：scrub 滚动绑定（可逆）——
+    // 下滑：ppt1/2/3 从左向右划入 → ppt4/5/6 从右向左划入 → ppt7/8/9 从左向右划入（行间依次衔接）
+    // 上滑：scrub 自动反向播放，各行沿原方向划出；滚回后完全复位
+    // 完成后 clearProps 清掉内联样式，恢复 CSS 的 hover 上浮；scrub 回退时 GSAP 自动重写内联样式
+    var pptGrid = document.querySelector('#other .smw-ppt-grid');
+    var pptFigs = pptGrid ? pptGrid.querySelectorAll('figure') : [];
+    if(pptFigs.length){
+      var rowL1 = Array.prototype.slice.call(pptFigs, 0, 3);   // 第1行：从左划入
+      var rowR  = Array.prototype.slice.call(pptFigs, 3, 6);   // 第2行：从右划入
+      var rowL2 = Array.prototype.slice.call(pptFigs, 6, 9);   // 第3行：从左划入
+      var pptTl = gsap.timeline({
+        scrollTrigger: {
+          trigger: pptGrid,
+          start: 'top 95%',
+          end: 'top 25%',
+          scrub: 1,
+          invalidateOnRefresh: true
+        },
+        onComplete: function(){ gsap.set(pptFigs, { clearProps: 'transform,opacity' }); }
+      });
+      pptTl.fromTo(rowL1, { x: -180, opacity: 0 }, { x: 0, opacity: 1, duration: 1, stagger: .3, ease: 'power1.out' })
+           .fromTo(rowR,  { x:  180, opacity: 0 }, { x: 0, opacity: 1, duration: 1, stagger: .3, ease: 'power1.out' }, '-=0.55')
+           .fromTo(rowL2, { x: -180, opacity: 0 }, { x: 0, opacity: 1, duration: 1, stagger: .3, ease: 'power1.out' }, '-=0.55');
+
+      // ppt 图为 lazy 加载：任一张加载完成都可能改变上方/自身布局，刷新一次触发位置，避免 scrub start/end 漂移
+      pptGrid.querySelectorAll('img').forEach(function(img){
+        if(!img.complete) img.addEventListener('load', function(){ ScrollTrigger.refresh(); }, { once: true });
+      });
+    }
+
+    // 统一时间轴：不 pin。start=板块顶边进入视口底边，end=板块底边离开视口顶边，
+    // 这期间页面照常滚动，组合一边旋转/轻微放大，一边随页面上移离开
+    var tl = gsap.timeline({
+      defaults: { ease: 'none' },       // 线性跟随滚动，方向才跟手
+      scrollTrigger: {
+        trigger: section,
+        start: 'top bottom',            // 板块顶边碰到视口底边时开始
+        end: 'bottom top',              // 板块底边离开视口顶边时结束（此时组合已完全上移离开）
+        scrub: 1,                       // 滚动驱动（Lenis 的 scroll 回调会更新 ScrollTrigger）
+        invalidateOnRefresh: true
+      }
+    });
+
+    // ① 标题：板块刚进入视口时（前 10%）淡入归位
+    tl.to(title, { opacity: 1, y: 0, ease: 'power2.out', duration: 0.1 }, 0);
+
+    // ② 10 张图作为一个整体（占满全程）：轻微放大半径、整圈旋转角、图片缩放。
+    //    半径终值用函数返回，ScrollTrigger refresh（如 resize）时会重取最新值
+    var lastMax = ringMax();
+    tl.to(proxy, {
+        duration: 1,
+        r: function(){ return ringMax(); },
+        spin: SPIN_DEG,
+        s: 1,
+        onUpdate: apply
+      }, 0);
+
+    // 窗口尺寸变化：按当前比例把半径换算到新尺寸，再交给 refresh 重取终值
+    window.addEventListener('resize', function(){
+      var m = ringMax();
+      if(m !== lastMax){
+        // 还停在起始位（如刚旋转屏幕尚未滚动）时，直接用新断点的起始比例/缩放重置
+        var p0 = tl.scrollTrigger ? tl.scrollTrigger.progress : 0;
+        if(p0 < 0.02){ proxy.r = m * startRatio(); proxy.s = startScale(); }
+        else { proxy.r = proxy.r / lastMax * m; }
+        lastMax = m;
+        apply();
+      }
+      ScrollTrigger.refresh();
+    });
+    window.addEventListener('load', function(){ ScrollTrigger.refresh(); });
+  });
+  </script>
+
+  <script src="js/vendor/gsap.min.js"></script>
+  <script src="js/vendor/ScrollTrigger.min.js"></script>
+  <script src="js/vendor/lenis.min.js"></script>
+<script>
+  // 作品卡牌堆交互（5 张卡 / 4 段翻页）：滚到底后继续下滑 → 页面锁定
+  // 顶卡先以底边为支点掀起(rotateX -10° 上抬)，再向右上方飞出(后段淡出)；
+  // 其余卡从各自层级(y+14 / scale-.03 / 亮度-4%)补位上移；回退时顶卡沿路飞回。
+  (function(){
+    var cards = [
+      document.getElementById('cardFront'),    // 卡1 作品展示
+      document.getElementById('cardMiddle'),   // 卡2 黑布介绍
+      document.querySelector('.card-bottom'),  // 卡3 分镜头脚本
+      document.getElementById('cardDeep'),     // 卡4 更多作品
+      document.getElementById('cardDeepest')   // 卡5 感谢观看（最后一张，不再翻）
+    ];
+    var zone = document.querySelector('.card-screen');
+    if(cards.some(function(c){ return !c; }) || !zone || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var N = cards.length;
+    var STAGE = 900;                  // 每掀一张所需的滚轮累计量
+    var MAX = STAGE * (N - 1);        // 卡1~卡4 依次掀飞，卡5 为最后一张
+    var FLY_TF = 'translateY(calc(-34px - 140%)) translateX(18%) rotateX(-10deg) rotate(8deg)';
+    var target = 0, cur = -1;
+    function clamp01(v){ return Math.max(0, Math.min(1, v)); }
+    function smooth(a, b, t){ t = clamp01((t - a) / (b - a)); return t * t * (3 - 2 * t); }
+    function rise(t){ return smooth(.15, .9, t); }  // 补位上移节奏
+    function render(p){
+      for(var j = 0; j < N; j++){
+        var el = cards[j];
+        var own = j * STAGE;
+        if(p >= own + STAGE){
+          // 已掀飞：保持飞出终态（不可见）
+          el.style.transform = FLY_TF;
+          el.style.opacity = '0';
+          el.style.filter = 'none';
+          continue;
+        }
+        if(p >= own - 1e-6){
+          // 自身翻页阶段：掀起(0~.22) → 飞出(.22~.85) → 后段淡出(.6~.95)
+          var t = clamp01((p - own) / STAGE);
+          var l = smooth(0, .22, t), f = smooth(.22, .85, t), d = smooth(.6, .95, t);
+          el.style.transform = 'translateY(calc(' + (-34*l).toFixed(1) + 'px - ' + (140*f).toFixed(1) + '%))'
+            + ' translateX(' + (18*f).toFixed(1) + '%)'
+            + ' rotateX(' + (-10*l).toFixed(2) + 'deg) rotate(' + (8*f).toFixed(2) + 'deg)';
+          el.style.opacity = (1 - d).toFixed(3);
+          el.style.filter = 'none';
+          continue;
+        }
+        // 尚未轮到：随前面每一翻页阶段从初始深度 j 逐层补位上移
+        var depth = j;
+        for(var s = 0; s < j; s++) depth -= rise(clamp01((p - s * STAGE) / STAGE));
+        el.style.transform = 'translateY(' + (depth * 14).toFixed(1) + 'px) scale(' + (1 - depth * .03).toFixed(3) + ')';
+        el.style.opacity = '1';
+        el.style.filter = 'brightness(' + (100 - depth * 4).toFixed(0) + '%)';
+      }
+    }
+    function tick(){
+      if(cur !== target){
+        cur += (target - cur) * 0.14;
+        if(Math.abs(target - cur) < 0.5) cur = target;
+        render(cur);
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+    // 翻牌基准：卡片屏底边对齐视口底边；其后还有"其他"空白屏。
+    // 真实滚轮不会精确停在某一行，所以在卡片屏末尾设 GRAB 抓取窗口：
+    // 还差 60px 到底、或已越界进入空白屏 220px 内，都抓住并拉回基准线翻牌。
+    var GRAB = 220;
+    function lockY(){ return zone.offsetTop + zone.offsetHeight - window.innerHeight; }
+    // Lenis 平滑滚动与翻牌抓轮协调：抓取期间暂停 Lenis（其 stop 后只拦不滚），
+    // 放行时恢复；start() 内部会 reset 到真实滚动位置，无跳变。
+    function holdLenis(on){
+      var L = window.lenis;
+      if(!L) return;
+      if(on){ if(!L.__held){ L.__held = 1; L.stop(); } }
+      else if(L.__held){ L.__held = 0; L.start(); }
+    }
+    // 导航直达「其他/联系」时调用：卡牌立即置为全部翻完的终态，解除滚动锁定，
+    // 避免平滑滚动经过翻牌抓取窗口时被 wheel/scroll 监听拉回卡片屏。
+    window.__cardFlipFinish = function(){
+      target = MAX; cur = MAX;
+      render(cur);
+      window.__cardFlipLocked = false;
+      holdLenis(false);
+    };
+    // Lenis 的内容尺寸观察可能在 ScrollTrigger pin refresh 瞬间把 limit 测成 0，
+    // 每次滚轮顺手校正，避免放行时滚动被钳在当前位置。
+    function fixLenisLimit(){
+      var L = window.lenis;
+      if(L){
+        var max = document.documentElement.scrollHeight - window.innerHeight;
+        if(Math.abs(L.limit - max) > 4) L.resize();
+      }
+    }
+    window.addEventListener('wheel', function(e){
+      fixLenisLimit();
+      var y = lockY();
+      if(e.deltaY < 0){
+        // 上滑：牌未归位且仍在末尾抓取窗口内(含刚进入空白屏) → 拉回基准线，顶卡飞回；
+        // 已深入空白屏则放行正常滚动
+        if(target > 0 && window.scrollY <= y + GRAB){
+          holdLenis(true);
+          e.preventDefault();
+          if(Math.abs(window.scrollY - y) > 2) window.scrollTo(0, y);
+          target = Math.max(0, target + e.deltaY);
+        } else {
+          holdLenis(false);
+        }
+        if(target === 0) window.__cardFlipLocked = false;
+        return;
+      }
+      if(target >= MAX){ holdLenis(false); return; } // 卡5 落顶后放行，可滚入"其他"空白屏
+      if(window.scrollY < y - 60 || window.scrollY > y + GRAB){ holdLenis(false); return; } // 未到末尾窗口不抓
+      holdLenis(true);
+      e.preventDefault(); // 网页不动，只翻牌
+      if(Math.abs(window.scrollY - y) > 2) window.scrollTo(0, y); // 越过底部的惯性拉回
+      window.__cardFlipLocked = true;
+      target = Math.min(MAX, target + e.deltaY);
+    }, { passive: false });
+    // 钉扎：翻牌进行中(0<target<MAX)任何残余惯性滚动都被拉回卡片屏底部，页面纹丝不动
+    window.addEventListener('scroll', function(){
+      if(target > 0 && target < MAX){
+        holdLenis(true);
+        var y = lockY();
+        if(Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y);
+      } else {
+        holdLenis(false);
+        window.__cardFlipLocked = false;
+      }
+    }, { passive: true });
+  })();
+
+  // ====== Lenis 平滑滚动：与 GSAP ticker 同步，ScrollTrigger 随其刷新 ======
+  (function(){
+    if(!window.Lenis) return;
+    var lenis = new Lenis({ duration: 1.1, smoothWheel: true });
+    window.lenis = lenis;
+    lenis.on('scroll', function(){ window.ScrollTrigger && ScrollTrigger.update(); });
+    gsap.ticker.add(function(time){ lenis.raf(time * 1000); });
+    gsap.ticker.lagSmoothing(0);
+    // 导航/吸附统一走 Lenis；未加载时回退原生滚动
+    window.__lenisTo = function(y){
+      if(window.lenis){
+        var max = document.documentElement.scrollHeight - window.innerHeight;
+        if(Math.abs(lenis.limit - max) > 4) lenis.resize();
+        lenis.scrollTo(y, { duration: 1.05 });
+      }
+      else window.scrollTo(0, y);
+    };
+    // 大图加载完后页面高度变化：window load 时重算 Lenis limit
+    // （依赖内置 autoResize 处理窗口/容器变化；避免用 RO 频繁 resize 中断滚动动画）
+    if(document.readyState === 'complete') lenis.resize();
+    else window.addEventListener('load', function(){ lenis.resize(); });
+    setTimeout(function(){ lenis.resize(); }, 1500); // 兜底：弱网下图片较慢时也尽早修正一次
+  })();
+
+  // 卡片屏对齐吸附：滚到卡片屏且距顶对齐不足 1cm(≈38px) 时，页面自动往下补齐这 1cm
+  (function(){
+    var zone = document.querySelector('.card-screen');
+    if(!zone) return;
+    var snapping = false;
+    window.addEventListener('scroll', function(){
+      if(snapping || window.__cardFlipLocked) return;
+      var r = zone.getBoundingClientRect();
+      if(r.top > 0 && r.top <= 38 && r.bottom >= window.innerHeight){
+        snapping = true;
+        var top = window.scrollY + r.top;
+        if(window.__lenisTo) window.__lenisTo(top);
+        else window.scrollTo({ top: top, behavior: 'smooth' });
+        setTimeout(function(){ snapping = false; }, 1000);
+      }
+    }, { passive: true });
+  })();
+
+  // 导航：点击"首页"/Logo：拦截默认跳转（href="#" 会改地址栏/跳顶），平滑滚回第一屏，不刷新页面
+  function goHome(e){
+    e.preventDefault();
+    if(window.lenis){ window.lenis.scrollTo(0); }
+    else { window.scrollTo(0, 0); }
+  }
+  document.querySelector('.nav-home').addEventListener('click', goHome);
+  document.querySelector('.logo').addEventListener('click', goHome);
+
+  // 导航：点击"关于我"滚动到第三屏
+  document.querySelector('.nav-about').addEventListener('click', function(e){
+    e.preventDefault();
+    window.__lenisTo ? window.__lenisTo(document.getElementById('about').offsetTop) : window.scrollTo(0, document.getElementById('about').offsetTop);
+  });
+
+  // 导航：点击"文章"滚动到第四屏
+  document.querySelector('.nav-article').addEventListener('click', function(e){
+    e.preventDefault();
+    window.__lenisTo ? window.__lenisTo(document.getElementById('article').offsetTop) : window.scrollTo(0, document.getElementById('article').offsetTop);
+  });
+
+  // 导航：点击"影像创作"滚动到尾屏作品墙
+  document.querySelector('.nav-video').addEventListener('click', function(e){
+    e.preventDefault();
+    window.__lenisTo ? window.__lenisTo(document.getElementById('pex').offsetTop) : window.scrollTo(0, document.getElementById('pex').offsetTop);
+  });
+
+  // 影像创作屏「继续向下滑动」按钮：仅在当前页平滑向下滚一屏，不跳转、不开新标签
+  (function(){
+    var btn = document.getElementById('pexScrollBtn');
+    if(!btn) return;
+    btn.addEventListener('click', function(){
+      var y = window.scrollY + window.innerHeight * 0.92;
+      window.__lenisTo ? window.__lenisTo(y) : window.scrollTo({ top: y, behavior: 'smooth' });
+    });
+  })();
+
+  // 导航：点击"其他"滚动到最底部空白页（先解除翻牌卡的抓轮锁定，否则会被拉回翻牌屏）
+  document.querySelector('.nav-other').addEventListener('click', function(e){
+    e.preventDefault();
+    if(window.__cardFlipFinish) window.__cardFlipFinish();
+    var top = document.getElementById('other').offsetTop;
+    window.__lenisTo ? window.__lenisTo(top) : window.scrollTo(0, top);
+  });
+
+  // 导航：点击"联系"滚动到页尾联系板块（同样先解除翻牌锁定）
+  document.getElementById('navContact').addEventListener('click', function(e){
+    e.preventDefault();
+    var el = document.getElementById('contact');
+    if(!el) return;
+    if(window.__cardFlipFinish) window.__cardFlipFinish();
+    window.__lenisTo ? window.__lenisTo(el.offsetTop) : window.scrollTo(0, el.offsetTop);
+  });
+
+  // 过渡屏「故事要怎样呈现呢？」：手动拆字（零依赖），每字外包遮罩。
+  // 触发时机：影像创作屏的「逃2」画框滚到视口最上端时，固定覆盖层淡入，
+  // 继续滚动 1.5 屏把九字从右上斜向逐字扫入；区间结束淡出，露出翻牌卡屏
+  (function(){
+    var dv = document.getElementById('storyboard-divider');
+    var el = dv && dv.querySelector('.divider-text');
+    var overlay = dv && dv.querySelector('.dv-overlay');
+    var triggerImg = document.querySelector('.pex-f3 img');
+    if(!el || !overlay || !triggerImg || !window.gsap || !window.ScrollTrigger) return;
+    gsap.registerPlugin(ScrollTrigger);
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // 手动逐字拆分：<span class="char-mask"><span class="char">字</span></span>
+    function splitText(node){
+      var text = node.textContent;
+      node.textContent = '';
+      node.setAttribute('aria-label', text);
+      var chars = [];
+      Array.prototype.forEach.call(text, function(ch){
+        var mask = document.createElement('span');
+        mask.className = 'char-mask';
+        var c = document.createElement('span');
+        c.className = 'char';
+        c.textContent = ch === ' ' ? '\u00A0' : ch;
+        mask.appendChild(c);
+        node.appendChild(mask);
+        chars.push(c);
+      });
+      return chars;
+    }
+
+    function build(){
+      var chars = splitText(el);
+      if(reduce){ overlay.classList.add('dv-static'); return; }
+      gsap.set(chars, { xPercent: 120, yPercent: -120 });
+      gsap.set(overlay, { opacity: 0 });
+      var tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: triggerImg,   // 「逃2」图片顶边到视口顶边时开始
+          start: 'top top',
+          end: '+=150%',         // 滚动 1.5 屏走完整个动画
+          scrub: 1               // 动画进度跟随滚动，1s 平滑
+        }
+      });
+      tl.to(overlay, { opacity: 1, duration: .06, ease: 'none' }, 0)
+        .to(chars, {
+          xPercent: 0,
+          yPercent: 0,
+          ease: 'power4.out',
+          stagger: { each: .06, from: 'start' } // 从左到右逐字进场
+        }, 0)
+        .to(overlay, { opacity: 0, duration: .14, ease: 'none' }, 1.42); // 末段淡出
+      var st = tl.scrollTrigger;
+      // 让文档流占位足够高：覆盖层走完整个动画区间前，下方翻牌卡屏不进入视口
+      // （背景同是奶油色，淡出时视觉无缝）。按真实几何计算，窗口/图片变化时重算
+      function fitSpacer(){
+        var dvTop = dv.getBoundingClientRect().top + window.scrollY;
+        if(!isFinite(st.end)) return;
+        dv.style.minHeight = (st.end - dvTop + window.innerHeight) + 'px';
+      }
+      // 必须先 refresh 再取值（ST 刚创建时 start/end 还是 0/undefined）；
+      // 之后每次 ST 因图片加载等原因 refresh，占位也跟着重算（rAF 避免在 refresh 中改布局）
+      ScrollTrigger.refresh();
+      fitSpacer();
+      ScrollTrigger.addEventListener('refresh', function(){ requestAnimationFrame(fitSpacer); });
+      var fitTimer = null;
+      window.addEventListener('resize', function(){
+        if(fitTimer) clearTimeout(fitTimer);
+        fitTimer = setTimeout(function(){ fitSpacer(); ScrollTrigger.refresh(); }, 200);
+      });
+    }
+    if(document.fonts && document.fonts.ready){ document.fonts.ready.then(build); }
+    else { build(); }
+  })();
+
+  // 离开第一屏后，鼠标向上滑动 → 顶部浮现导航栏；向下滑 → 隐藏。第一屏内除外。
+  let lastNavY = window.scrollY;
+  const navEl = document.querySelector('nav');
+  function onNavFloat(){
+    const y = window.scrollY;
+    if (y < window.innerHeight - 4) {
+      // 还在第一屏：恢复原位，跟随页面自然滚动
+      navEl.classList.remove('nav-floating', 'nav-show');
+    } else {
+      // 第二屏及以后：启用浮动导航，按滚动方向显隐
+      navEl.classList.add('nav-floating');
+      if (y < lastNavY - 2) {
+        navEl.classList.add('nav-show');           // 向上滑
+      } else if (y > lastNavY + 2) {
+        navEl.classList.remove('nav-show');        // 向下滑
+      }
+    }
+    lastNavY = y;
+  }
+  window.addEventListener('scroll', onNavFloat, { passive: true });
+  window.addEventListener('resize', onNavFloat);
+
+  // 导航滚动监听：横线停在当前所在屏对应的菜单项上
+  // 区间：关于我(#about) → 图文(#article) → 影像创作(#pex，含过渡屏与翻牌卡) → 其他(#other)
+  (function(){
+    var spyItems = [
+      { link: document.querySelector('.nav-home'),    top: 0 },
+      { link: document.querySelector('.nav-about'),   section: 'about' },
+      { link: document.querySelector('.nav-article'), section: 'article' },
+      { link: document.querySelector('.nav-video'),   section: 'pex' },
+      { link: document.querySelector('.nav-other'),   section: 'other' }
+    ];
+    function measure(){
+      spyItems.forEach(function(it){
+        if(it.section){
+          var s = document.getElementById(it.section);
+          it.top = s ? s.offsetTop : Infinity;
+        }
+      });
+    }
+    var spyRaf = 0;
+    function spy(){
+      spyRaf = 0;
+      measure();
+      // 区块顶边进入视口约 35% 高度时，即视为当前屏
+      var line = window.scrollY + window.innerHeight * 0.35;
+      var current = spyItems[0];
+      spyItems.forEach(function(it){ if(it.top <= line) current = it; });
+      spyItems.forEach(function(it){
+        it.link.classList.toggle('active', it === current);
+      });
+    }
+    function onScroll(){
+      if(!spyRaf) spyRaf = requestAnimationFrame(spy);
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    window.addEventListener('load', function(){ measure(); spy(); });
+    measure(); spy();
+  })();
+
+  /* 图片配置：src / 宽高比 / 尺寸区间
+     按每张图的气质定的——超长的水墨画按高度给尺寸，横长的车按宽度给 */
+  const IMGS = [
+    { src: 'images/45.png', ratio: 899/616,  min: 150, max: 205 },  // 橙帽女孩
+    { src: 'images/46.png', ratio: 900/353,  min: 230, max: 320 },  // 老爷车（横长）
+    { src: 'images/47.png', ratio: 683/900,  min: 115, max: 160 },  // 黄帽女人（竖）
+    { src: 'images/48.png', ratio: 900/808,  min: 185, max: 250 },  // 少女与狮
+    { src: 'images/49.png', ratio: 900/795,  min: 140, max: 185 },  // 古籍
+    { src: 'images/50.png', ratio: 631/670,  min: 125, max: 165 },  // 船首像
+    { src: 'images/51.png', ratio: 301/900,  min: 105, max: 150 },  // 水墨伞女（超长）
+    { src: 'images/52.png', ratio: 608/900,  min: 130, max: 180 },  // 彩绘仕女
+    { src: 'images/53.png', ratio: 810/900,  min: 145, max: 195 },  // 书法残页
+    { src: 'images/54.png', ratio: 900/865,  min: 120, max: 160 },  // 手捧花
+    { src: 'images/55.png', ratio: 1179/1553, min: 120, max: 170 }, // 高楼（竖）
+    { src: 'images/56.png', ratio: 1178/360,  min: 240, max: 330 }, // 泳池（超宽，已去白底）
+    { src: 'images/57.png', ratio: 1178/1073, min: 150, max: 210 }, // 大树
+    { src: 'images/58.png', ratio: 951/1350,  min: 110, max: 160 }, // 蓝色佛手（竖）
+    { src: 'images/59.png', ratio: 1062/1110, min: 130, max: 185 }, // 枯荷叶
+    { src: 'images/60.png', ratio: 1179/1489, min: 130, max: 185 }, // 白蛾与叶
+    { src: 'images/61.png', ratio: 913/1335,  min: 110, max: 160 }, // 绿植双手（竖）
+    { src: 'images/62.png', ratio: 1177/1591, min: 120, max: 175 }, // 苔纸（竖）
+    { src: 'images/63.png', ratio: 1155/1085, min: 140, max: 200 }, // 青苔之眼
+    { src: 'images/64.png', ratio: 928/934,   min: 120, max: 175 }, // 贝壳珍珠盘
+    { src: 'images/65.png', ratio: 964/1021,  min: 130, max: 185 }, // 绿花
+    { src: 'images/66.png', ratio: 934/895,   min: 130, max: 190 }, // 白鹿
+  ];
+
+  const collage = document.getElementById('collage');
+  const title = document.querySelector('.giant-title');
+
+  const MAX_PIECES = 24;
+  let pieces = [];
+  let seqIndex = 0;                 // 顺序游标：图片按 1→N 依次出现，走完回到 1
+  let lastX = -999, lastY = -999;
+  let mouseX = 0, mouseY = 0;
+  let curX = 0, curY = 0;
+
+  // ---------- 在 (cx, cy) 附近一次"种"出 2~4 个 ----------
+  function spawnCluster(cx, cy) {
+    const n = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const dist = 30 + Math.random() * 130;
+      const x = cx + Math.cos(ang) * dist;
+      const y = cy + Math.sin(ang) * dist;
+
+      const el = document.createElement('div');
+      el.className = 'piece';
+      const cfg = IMGS[seqIndex % IMGS.length];  // 严格按 1→N 顺序，循环出现
+      seqIndex++;
+      const w = cfg.min + Math.random() * (cfg.max - cfg.min);
+      el.style.width  = w + 'px';
+      el.style.height = (w / cfg.ratio) + 'px';
+
+      const imgEl = document.createElement('img');
+      imgEl.src = cfg.src;
+      imgEl.draggable = false;
+      el.appendChild(imgEl);
+
+      // 点击图片：换成图库里的另一张
+      imgEl.addEventListener('click', () => {
+        const others = IMGS.filter(c => c.src !== imgEl.getAttribute('src'));
+        const next = others[Math.floor(Math.random() * others.length)];
+        imgEl.src = next.src;
+        const nw = next.min + Math.random() * (next.max - next.min);
+        el.style.width  = nw + 'px';
+        el.style.height = (nw / next.ratio) + 'px';
+      });
+
+      const rot = (Math.random() - 0.5) * 30;
+      const depth = 25 + Math.random() * 75;
+
+      el.style.left = x + 'px';
+      el.style.top  = y + 'px';
+      el.style.setProperty('--r', rot + 'deg');
+      collage.appendChild(el);
+
+      requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('born')));
+
+      pieces.push({ el, depth, baseRot: rot });
+
+      if (pieces.length > MAX_PIECES) {
+        const old = pieces.shift();
+        old.el.classList.add('dying');
+        setTimeout(() => old.el.remove(), 650);
+      }
+    }
+  }
+
+  // ---------- 鼠标移动：走够距离就播种（滑到第二屏后暂停） ----------
+  function onMove(clientX, clientY) {
+    mouseX = clientX / window.innerWidth  - 0.5;
+    mouseY = clientY / window.innerHeight - 0.5;
+
+    const dx = clientX - lastX, dy = clientY - lastY;
+    if (Math.hypot(dx, dy) > 80) {
+      if (window.scrollY < window.innerHeight * 0.5) {
+        spawnCluster(clientX, clientY);
+      }
+      lastX = clientX;
+      lastY = clientY;
+    }
+  }
+
+  window.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+  window.addEventListener('touchmove', e => {
+    const t = e.touches[0];
+    onMove(t.clientX, t.clientY);
+  }, { passive: true });
+
+  // ---------- 动画循环：视差 + 轻微漂浮 ----------
+  function animate() {
+    curX += (mouseX - curX) * 0.06;
+    curY += (mouseY - curY) * 0.06;
+    const t = Date.now() / 1000;
+
+    pieces.forEach((p, i) => {
+      const px = -curX * p.depth;
+      const py = -curY * p.depth;
+      const bobX = Math.sin(t * 0.7 + i * 1.3) * 4;
+      const bobY = Math.cos(t * 0.6 + i * 0.9) * 4;
+      const rz = p.baseRot + curX * p.depth * 0.05;
+      p.el.style.translate = `${px + bobX}px ${py + bobY}px`;
+      p.el.style.rotate = rz + 'deg';
+    });
+
+    requestAnimationFrame(animate);
+  }
+  animate();
+
+  // ---------- 第五屏：轮播卡片 ----------
+  const scCards = document.querySelectorAll('.showcase-card');
+  const scTotal = scCards.length;
+  let scIdx = 0;
+
+  // 生成指示器圆点（与卡片一一对应，点击跳转）
+  const scDotsWrap = document.getElementById('showcaseDots');
+  const scDots = [];
+  scCards.forEach((_, i) => {
+    const dot = document.createElement('button');
+    dot.className = 'showcase-dot';
+    dot.setAttribute('aria-label', '跳转到第' + (i + 1) + '张');
+    dot.addEventListener('click', () => { scIdx = i; updateShowcase(); });
+    scDotsWrap.appendChild(dot);
+    scDots.push(dot);
+  });
+
+  function updateShowcase(){
+    scCards.forEach((card, i) => {
+      card.classList.remove('active','prev','next','hidden');
+      const offset = (i - scIdx + scTotal) % scTotal;
+      if(offset === 0) card.classList.add('active');
+      else if(offset === 1) card.classList.add('next');
+      else if(offset === scTotal - 1) card.classList.add('prev');
+      else card.classList.add('hidden');
+    });
+    scDots.forEach((dot, i) => dot.classList.toggle('active', i === scIdx));
+  }
+  function scPrev(){ scIdx = (scIdx - 1 + scTotal) % scTotal; updateShowcase(); }
+  function scNext(){ scIdx = (scIdx + 1) % scTotal; updateShowcase(); }
+
+  document.getElementById('scPrev').addEventListener('click', scPrev);
+  document.getElementById('scNext').addEventListener('click', scNext);
+  updateShowcase();
+
+  // 第五屏入场动画：滚入视口时标题左右滑入，向上滑离时滚回复位
+  const showcaseScreen = document.getElementById('showcase');
+  const scIO = new IntersectionObserver((entries) => {
+    entries.forEach(en => {
+      if(en.isIntersecting){
+        showcaseScreen.classList.add('visible');
+      } else {
+        showcaseScreen.classList.remove('visible');   // 滑离时标题分别滚回左/右
+      }
+    });
+  }, { threshold: 0.25 });
+  scIO.observe(showcaseScreen);
+
+  // ---------- 第五屏：点击图片整体放大 ----------
+  const lightbox = document.createElement('div');
+  lightbox.className = 'lightbox';
+  lightbox.innerHTML = '<button class="lightbox-close" aria-label="关闭">✕</button><img alt="放大查看">';
+  document.body.appendChild(lightbox);
+  const lightboxImg = lightbox.querySelector('img');
+
+  function openLightbox(src, alt){
+    lightboxImg.src = src;
+    lightboxImg.alt = alt || '放大查看';
+    lightbox.classList.add('open');
+  }
+  function closeLightbox(){
+    lightbox.classList.remove('open');
+    setTimeout(() => { if(!lightbox.classList.contains('open')) lightboxImg.removeAttribute('src'); }, 300);
+  }
+
+  document.querySelectorAll('.showcase-card .card-media').forEach(media => {
+    media.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const img = media.querySelector('img');
+      if(img) openLightbox(img.src, img.alt);
+    });
+  });
+  lightbox.addEventListener('click', closeLightbox);
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape') closeLightbox();
+  });
+
+  // ---------- 画室微博图片：悬停时鼠标右上角显示「点击放大图片」小字（跟随鼠标） ----------
+  (function(){
+    if(!window.matchMedia('(pointer: fine)').matches) return; // 触屏不显示
+    const tip = document.createElement('div');
+    tip.className = 'img-tip';
+    document.body.appendChild(tip);
+    let raf = null, tx = 0, ty = 0;
+    function move(){
+      raf = null;
+      // 定位在鼠标右上角；贴近右/上边缘时自动翻向内侧，避免超出视口
+      const w = tip.offsetWidth || 90, h = tip.offsetHeight || 24;
+      let x = tx + 16;
+      let y = ty - h - 12;
+      if(x + w > window.innerWidth - 8) x = tx - w - 16;
+      if(y < 8) y = ty + 16;
+      tip.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+    }
+    document.querySelectorAll('.card-media[data-tip], .mp-card[data-href]').forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        tip.textContent = el.getAttribute('data-tip') || '点击查看公众号';
+        tip.classList.add('show');
+      });
+      el.addEventListener('mousemove', (e) => {
+        tx = e.clientX; ty = e.clientY;
+        if(!raf) raf = requestAnimationFrame(move);
+      });
+      el.addEventListener('mouseleave', () => {
+        tip.classList.remove('show');
+      });
+    });
+  })();
+
+  // ---------- 第三屏→第四屏：四根电话线连接「打字机底端 ↔ 标题单字」 ----------
+  // 卡片顺序对应：卡1→新(0)，卡2→体(2)，卡3→文(4)，卡4→集(6)
+  (function(){
+    const svg = document.getElementById('cordsSvg');
+    const article = document.getElementById('article');
+    const cards = document.querySelectorAll('.typewriter-card');
+    const chars = article.querySelectorAll('.article-title .tw-char');
+    const links = [0, 2, 4, 6];
+    if(!svg || cards.length < 4 || chars.length < 7) return;
+
+    const NS = 'http://www.w3.org/2000/svg';
+    let raf = null;
+
+    // 沿 P0→P1 方向生成带垂直正弦波浪的弹簧卷线路径
+    function springPath(x0, y0, x1, y1){
+      const dx = x1 - x0, dy = y1 - y0;
+      const len = Math.hypot(dx, dy) || 1;
+      const ux = dx / len, uy = dy / len;       // 轴向单位向量
+      const nx = -uy, ny = ux;                  // 垂直方向
+      const amp = 9;                             // 线圈振幅（半宽）
+      const loops = Math.max(6, Math.min(16, Math.round(len / 26)));
+      const steps = loops * 14;
+      let d = '';
+      for(let k = 0; k <= steps; k++){
+        const t = k / steps;
+        let wave = 0;
+        if(t > .06 && t < .94){                  // 两端留出直线接头
+          wave = Math.sin(2 * Math.PI * loops * t);
+        }
+        const x = x0 + dx * t + nx * amp * wave;
+        const y = y0 + dy * t + ny * amp * wave;
+        d += (k === 0 ? 'M' : 'L') + x.toFixed(1) + ' ' + y.toFixed(1);
+      }
+      return d;
+    }
+
+    function placeCords(){
+      raf = null;
+      const art = article.getBoundingClientRect();
+      const pts = links.map((ci, i) => {
+        const c = cards[i].getBoundingClientRect();
+        const ch = chars[ci].getBoundingClientRect();
+        return {
+          sx: c.left + c.width / 2,  sy: c.bottom,             // 打字机底端中央
+          ex: ch.left + ch.width / 2, ey: ch.top + 1            // 单字顶部
+        };
+      });
+      // SVG 覆盖盒：包含全部起止点并留余量
+      const xs = pts.flatMap(p => [p.sx, p.ex]);
+      const ys = pts.flatMap(p => [p.sy, p.ey]);
+      const m = 26;
+      const minX = Math.min(...xs) - m, minY = Math.min(...ys) - m;
+      const W = Math.max(...xs) - minX + m, H = Math.max(...ys) - minY + m;
+
+      svg.style.left = (minX - art.left) + 'px';
+      svg.style.top = (minY - art.top) + 'px';
+      svg.style.width = W + 'px';
+      svg.style.height = H + 'px';
+      svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+      svg.innerHTML = '';
+
+      pts.forEach(p => {
+        const x0 = p.sx - minX, y0 = p.sy - minY;
+        const x1 = p.ex - minX, y1 = p.ey - minY;
+        const outer = document.createElementNS(NS, 'g');
+        outer.setAttribute('class', 'cord-sway');
+        outer.style.transformOrigin = x0.toFixed(1) + 'px ' + y0.toFixed(1) + 'px';
+        const inner = document.createElementNS(NS, 'g');
+        inner.setAttribute('class', 'cord-jitter');
+        const path = document.createElementNS(NS, 'path');
+        path.setAttribute('d', springPath(x0, y0, x1, y1));
+        const dot = document.createElementNS(NS, 'circle');
+        dot.setAttribute('cx', x1.toFixed(1));
+        dot.setAttribute('cy', y1.toFixed(1));
+        dot.setAttribute('r', '4');
+        dot.setAttribute('fill', '#54483F');
+        inner.appendChild(path);
+        inner.appendChild(dot);
+        outer.appendChild(inner);
+        svg.appendChild(outer);
+      });
+    }
+
+    function schedule(){ if(!raf) raf = requestAnimationFrame(placeCords); }
+    schedule();
+    window.addEventListener('load', schedule);
+    window.addEventListener('resize', schedule);
+    if(document.fonts && document.fonts.ready){ document.fonts.ready.then(schedule); }
+    setTimeout(schedule, 300);
+    setTimeout(schedule, 1200);   // 等待背景图/字体加载后再次校准
+  })();
+
+  // ---------- 第六屏：公众号作品集筛选（全部/排版/编辑/审核） ----------
+  (function(){
+    const btns = document.querySelectorAll('#mpFilters .mp-filter');
+    const cards = document.querySelectorAll('#mpGrid .mp-card');
+    if(!btns.length || !cards.length) return;
+    let current = 'all';
+    let timer = null;
+
+    function dutiesOf(card){
+      return (card.dataset.duties || '').split(/\s+/).filter(Boolean);
+    }
+    function match(card, key){
+      return key === 'all' || dutiesOf(card).indexOf(key) !== -1;
+    }
+
+    btns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.filter;
+        if(key === current) return;
+        current = key;
+        btns.forEach(b => b.classList.toggle('active', b === btn));
+
+        clearTimeout(timer);
+        const shown = [], hidden = [];
+        cards.forEach(card => {
+          const isHidden = card.style.display === 'none';
+          if(match(card, key)){
+            if(isHidden){ card.style.display = ''; shown.push(card); }
+          } else if(!isHidden){
+            hidden.push(card);
+          }
+        });
+        // 待显示卡片：先压到淡出态，下一帧再淡入
+        shown.forEach(c => c.classList.add('mp-out'));
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          shown.forEach(c => c.classList.remove('mp-out'));
+        }));
+        // 不符卡片：淡出后从网格流移除，其余卡片自动重排
+        if(hidden.length){
+          hidden.forEach(c => c.classList.add('mp-out'));
+          timer = setTimeout(() => {
+            hidden.forEach(c => { c.style.display = 'none'; c.classList.remove('mp-out'); });
+          }, 300);
+        }
+      });
+    });
+  })();
+
+  // ---------- 第六屏：最右列卡片去掉竖线（无外框） ----------
+  (function(){
+    const grid = document.getElementById('mpGrid');
+    if(!grid) return;
+    function fixLastCol(){
+      const list = Array.from(grid.querySelectorAll('.mp-card'))
+        .filter(c => c.style.display !== 'none');
+      list.forEach(c => c.classList.remove('mp-last'));
+      if(!list.length) return;
+      const maxRight = Math.max.apply(null, list.map(c => c.offsetLeft + c.offsetWidth));
+      list.forEach(c => {
+        if(Math.abs(c.offsetLeft + c.offsetWidth - maxRight) < 2) c.classList.add('mp-last');
+      });
+    }
+    fixLastCol();
+    window.addEventListener('load', fixLastCol);
+    window.addEventListener('resize', fixLastCol);
+    // 筛选切换后网格重排完成再重算
+    document.querySelectorAll('#mpFilters .mp-filter').forEach(b => {
+      b.addEventListener('click', () => setTimeout(fixLastCol, 350));
+    });
+  })();
+
+  // ---------- 第六屏：青芽信箱卡片 5 图轮番（网格3~7） ----------
+  (function(){
+    const box = document.getElementById('mpSlides2');
+    if(!box) return;
+    const imgs = box.querySelectorAll('img');
+    if(imgs.length < 2) return;
+    let i = 0;
+    setInterval(() => {
+      imgs[i].classList.remove('mp-on');
+      i = (i + 1) % imgs.length;
+      imgs[i].classList.add('mp-on');
+    }, 2200);
+  })();
+  // ---------- 第六屏：推文7「20」黑底插画 + 粉色粒子环绕 ----------
+  (function(){
+    const wrap = document.getElementById('mpOrbit7');
+    if(!wrap) return;
+
+    const colors = ['#F4A7B9', '#EC7FA0', '#F8C6D4', '#E892AC', '#F2B8C8'];
+    // 三条轨道：粒子数 / 半径占容器宽比例 / 周期 / 方向 / 点尺寸范围
+    const rings = [
+      { n: 8,  r: .395, d: 16, dir: 'normal',  s: [4, 6] },
+      { n: 10, r: .445, d: 23, dir: 'reverse', s: [3, 5] },
+      { n: 12, r: .485, d: 30, dir: 'normal',  s: [3, 5] }
+    ];
+    let dots = [];
+
+    function build(){
+      dots.forEach(d => d.remove());
+      dots = [];
+      const W = wrap.clientWidth;
+      rings.forEach((ring, ri) => {
+        for(let i = 0; i < ring.n; i++){
+          const el = document.createElement('span');
+          el.className = 'mp-orbit-dot';
+          const ang = (360 / ring.n) * i + ri * 17 + Math.random() * 14;
+          const size = ring.s[0] + Math.random() * (ring.s[1] - ring.s[0]);
+          el.style.setProperty('--a', ang.toFixed(1) + 'deg');
+          el.style.setProperty('--r', (W * ring.r).toFixed(1) + 'px');
+          el.style.setProperty('--d', ring.d + 's');
+          el.style.setProperty('--s', size.toFixed(1) + 'px');
+          el.style.setProperty('--c', colors[Math.floor(Math.random() * colors.length)]);
+          el.style.setProperty('--dir', ring.dir);
+          el.style.animationDelay = (-Math.random() * ring.d).toFixed(2) + 's';
+          wrap.appendChild(el);
+          dots.push(el);
+        }
+      });
+    }
+    build();
+    let rt;
+    window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(build, 200); });
+    window.addEventListener('load', build);
+  })();
+
+  
+  // ---------- 第六屏：推文8 · 断更23天 · 中心静态文字 ----------
+  // 背景图整体缓慢自转（CSS 已定义 .mp-xuan-bg animation），JS 只注入中心文字
+  (function(){
+    const wrap = document.getElementById('mpXuanWrap8');
+    if(!wrap) return;
+    if(wrap.querySelector('.mp-xuan-center-text')) return;
+    const c=document.createElement('div');
+    c.className='mp-xuan-center-text';
+    c.innerHTML=`
+      <div style="font-size:1.45vw;font-weight:600;letter-spacing:.1em;line-height:1.4;">断更23天</div>
+      <div style="font-size:.88vw;opacity:.7;margin-top:4px;letter-spacing:.14em;">许久未见 · 小宣好想念大家哦</div>
+    `;
+    wrap.appendChild(c);
+  })();
+
+  // ---------- 第六屏：带链接卡片点击跳转（data-href 新标签打开） ----------
+  (function(){
+    const cards = document.querySelectorAll('#mpGrid .mp-card[data-href]');
+    if(!cards.length) return;
+    cards.forEach(card => {
+      card.addEventListener('click', () => {
+        const url = card.dataset.href;
+        if(url) window.open(url, '_blank', 'noopener');
+      });
+    });
+  })();
+  // ---------- 页尾 Hero 区块：进入视口后标题/按钮淡入 + 卡片依次 stagger ----------
+  (function(){
+    const hero = document.querySelector('.gigs-hero');
+    if(!hero) return;
+    hero.classList.add('gigs-anim');
+    if(!('IntersectionObserver' in window)){ hero.classList.add('is-in'); return; }
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(en => {
+        if(en.isIntersecting){ hero.classList.add('is-in'); io.disconnect(); }
+      });
+    }, { threshold: .15 });
+    io.observe(hero);
+  })();
+  // ---------- 页尾技能方块：点击放大 3 倍并展示能力详情 ----------
+  (function(){
+    const GIGS_DATA = {
+      '定': {
+        title: '定位规划能力',
+        desc: '完成账号整体定位规划，结合账号赛道属性与运营目标，明确核心受众人群、用户画像与内容输出方向。确立账号整体人设、风格基调、内容特色与差异化优势，搭建长期完整体系，规避内容杂乱、方向跑偏问题，保证账号输出稳定、垂直、有辨识度。'
+      },
+      '研': {
+        title: '调研挖掘能力',
+        desc: '研究用户需求与竞品账号分析，拆解同赛道爆款内容逻辑、选题方向、用户偏好与变现路径。精准挖掘受众真实痛点、核心诉求与阅读需求，筛选高热度、高适配、高转化的内容选题，持续搭建、更新、沉淀专属选题素材库，为长期内容产出提供充足储备。'
+      },
+      '文': {
+        title: '文案创作能力',
+        desc: '具备成熟的文字编辑能力，根据小红书、公众号、微博等不同平台的流量逻辑与用户阅读习惯，撰写适配性强的标题、开篇、正文与结尾。熟练搭建完整文章叙事框架，做到逻辑清晰、节奏舒适、重点突出，能够结合热点、情绪、干货、种草等创作思路输出高质量原创文案，提升内容吸引力与留存率。'
+      },
+      '图': {
+        title: '视觉制作能力',
+        desc: '具备基础图片处理与视觉设计能力，根据账号整体调性筛选高清、适配、统一风格的配图素材。熟练完成图片裁切、调色、排版、贴纸文字搭配等基础制作，统一账号封面风格、图文色调、视觉搭配，保证整体内容视觉统一，提升账号整体质感与用户感观。'
+      },
+      '排': {
+        title: '图文排版能力',
+        desc: '合理规划页面阅读动线，通过分段、空行、重点高亮、图文穿插、间距调节，优化整体阅读节奏。规避密集文字、排版杂乱、重点模糊等问题，让内容层次清晰、观感舒适、阅读流畅，大幅降低用户阅读疲劳，提升完读率与停留时长。'
+      },
+      '规': {
+        title: '平台规则认知',
+        desc: '熟悉公众号、小红书、微博等主流新媒体平台的内容推送机制、流量规则和审核标准。清楚各平台的禁忌内容、限流误区与敏感内容，熟练规避各类违规风险，保障每一篇内容都能合规正常推送，有效防止账号出现限流、屏蔽、违规处罚等问题，保障账号稳定运营。'
+      },
+      '适': {
+        title: '跨平台适配能力',
+        desc: '具备成熟的一文多发、跨平台内容复用能力，可基于同一套核心素材与内容主题，根据不同平台的用户调性、内容生态、流量偏好进行二次改写、改编与版式优化。实现内容高效复用，大幅提升内容传播广度与覆盖面。'
+      },
+      '维': {
+        title: '账号运维能力',
+        desc: '负责内容全流程发布运维，发布前逐字校对文案、图片、标点、话题、排版细节，杜绝错漏问题；上线阶段精准搭配热门话题、精准标签与推荐位置，提升自然流量推送；发布后实时维护评论区、回复私信互动，主动拉近用户距离，提升账号活跃度、粉丝粘性与账号整体流量表现。'
+      },
+      '数': {
+        title: '数据监测能力',
+        desc: '能看懂并监测图文全维度核心数据，包含曝光、浏览、阅读量、点赞、收藏、评论、转发、关注、完读率等关键指标。实时追踪单篇内容传播走势，判断流量上涨、持平、下滑原因，精准识别爆款潜质内容与低效内容，为内容优化提供真实数据支撑。'
+      },
+      '馈': {
+        title: '用户反馈分析',
+        desc: '持续收集评论区留言、用户私信、粉丝提问、互动反馈等一手用户信息，精准捕捉用户真实需求、内容偏好、疑问与痛点。结合用户主观反馈与后台客观数据，综合判断内容质量、实用性、吸引力与传播效果，精准定位内容优势与存在问题。'
+      },
+      '总': {
+        title: '复盘总结能力',
+        desc: '定期开展内容数据复盘，横向对比往期同类型内容、纵向对标赛道爆款内容，汇总每篇图文的传播效果、流量来源、用户互动表现。系统总结内容选题、文案风格、视觉呈现、发布时段的优缺点，精准归纳爆款规律与踩坑问题，为后续创作提供明确优化方向。'
+      },
+      '承': {
+        title: '沉淀复用能力',
+        desc: '基于每一次复盘结果梳理归纳运营经验，持续更新选题库、文案模板库、视觉规范标准、排版模板与发布流程。将零散的运营经验转化为可复制、可复用、可迭代的标准化方法论，承接过往优势、规避过往问题，实现账号内容质量、流量数据、运营效率的持续优化与稳步提升。'
+      }
+    };
+    const gigCards = document.querySelectorAll('.gigs-card');
+    gigCards.forEach(card => {
+      const inner = card.querySelector('.gigs-card-in');
+      const key = inner.textContent.trim();
+      if(!GIGS_DATA[key]) return;                 // 所有方块均已有详情文案
+      card.classList.add('gigs-expandable');
+      if(!inner.querySelector('.gigs-char')){     // 把裸文字节点移入 span，避免折叠态出现重复字
+        const ch = document.createElement('span');
+        ch.className = 'gigs-char';
+        ch.textContent = key;
+        inner.textContent = '';
+        inner.appendChild(ch);
+      }
+      card.addEventListener('click', () => {
+        const wasOpen = card.classList.contains('gigs-open');
+        document.querySelectorAll('.gigs-card.gigs-open').forEach(c => c.classList.remove('gigs-open'));
+        if(!wasOpen){
+          if(!inner.querySelector('.gigs-detail')){
+            const d = document.createElement('div');
+            d.className = 'gigs-detail';
+            const h = document.createElement('h4');
+            h.textContent = GIGS_DATA[key].title;
+            const p = document.createElement('p');
+            p.textContent = GIGS_DATA[key].desc;
+            d.appendChild(h); d.appendChild(p);
+            inner.appendChild(d);
+          }
+          card.classList.add('gigs-open');
+        }
+      });
+    });
+    document.addEventListener('click', e => {
+      if(!e.target.closest('.gigs-card')){
+        document.querySelectorAll('.gigs-card.gigs-open').forEach(c => c.classList.remove('gigs-open'));
+      }
+    });
+  })();
+  // ---------- PEX TEL 摄影墙：3D 视差 + 相框跟随 ----------
+  (function(){
+    const wall = document.querySelector('.pex-wall');
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(!reduce && innerWidth > 980){
+      addEventListener('pointermove', e => {
+        const x = (e.clientX / innerWidth - .5) * 10, y = (e.clientY / innerHeight - .5) * -8;
+        wall.style.transform = `perspective(1100px) rotateY(${x}deg) rotateX(${y}deg)`;
+      }, { passive: true });
+    }
+    document.querySelectorAll('.pex-frame').forEach(f => f.addEventListener('pointermove', e => {
+      const r = f.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+      f.style.translate = `${x * 8}px ${y * 8}px`;
+      f.style.filter = 'brightness(1.06)';
+    }));
+    document.querySelectorAll('.pex-frame').forEach(f => f.addEventListener('pointerleave', () => {
+      f.style.translate = '0 0';
+      f.style.filter = '';
+    }));
+  })();
+</script>
+</body>
+</html>
